@@ -1,0 +1,29 @@
+docs/DEVELOPMENT_PLAN.md
+  ce74e4d27f7b158b 1-9,12-24,27-146,148-176,178-283
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8-ntes.9",
+  "base_commit_sha": "f2266073e6d9f54d35d3a55d4a9c63a8504f8d7b",
+  "prompts": {
+    "ce74e4d27f7b158b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1587a-206e-7c83-8973-10eb0bb8e9a2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "yukiice",
+      "messages": [],
+      "total_additions": 277,
+      "total_deletions": 0,
+      "accepted_lines": 277,
+      "overriden_lines": 0,
+      "per_file_stats": {
+        "docs/DEVELOPMENT_PLAN.md": {
+          "additions": 277,
+          "accepted_lines": 277
+        }
+      }
+    }
+  }
+}
