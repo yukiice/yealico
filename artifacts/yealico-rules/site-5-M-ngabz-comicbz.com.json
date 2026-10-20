@@ -1,0 +1,435 @@
+{
+  "meta": {
+    "bundleId": "work.cmbook.ComiGa",
+    "sitePk": 5,
+    "name": "Māngabz",
+    "domain": "comicbz.com",
+    "version": "2.1@wc3818290",
+    "author": "wc3818290",
+    "displayMode": "default, collection, default, default",
+    "flags": "",
+    "extractedAt": "2026-10-20T10:58:41.286955+00:00"
+  },
+  "urls": {
+    "index": "http://{domain:}/",
+    "detail": "http://{domain:}/{idCode:}/",
+    "gallery": "",
+    "search": "http://{domain:}/search?title={keyword:}&page={page:}"
+  },
+  "loginUrl": "",
+  "headers": {
+    "site": null,
+    "index": null,
+    "detail": null,
+    "gallery": null,
+    "search": null,
+    "series": null,
+    "tag": null,
+    "image": null
+  },
+  "rules": {
+    "index": {
+      "datetime": {
+        "regex": "(.+)  更新",
+        "selector": "$.LastUpdateTime"
+      },
+      "title": {
+        "selector": "$.Title"
+      },
+      "author": {
+        "selector": "$.Author[0]"
+      },
+      "cover": {
+        "selector": "$.ShowPicUrlB"
+      },
+      "idCode": {
+        "selector": "$.UrlKey"
+      },
+      "item": {
+        "selector": "$.UpdateComicItems"
+      }
+    },
+    "detail": {
+      "author": {
+        "function": "text",
+        "selector": ".detail-info-tip span a"
+      },
+      "category": {
+        "function": "text",
+        "selector": ".detail-info-tip span:nth-of-type(3) .item"
+      },
+      "chapterRule": {
+        "title": {
+          "regex": "(.+) （\\d+P）",
+          "selector": "this",
+          "replacement": "$1|{source:}",
+          "function": "text"
+        },
+        "datetime": {},
+        "item": {
+          "selector": "#chapterlistload>a"
+        },
+        "idCode": {
+          "param": "href",
+          "function": "attr",
+          "selector": "this",
+          "regex": "/(.+)/"
+        },
+        "url": {
+          "selector": "this",
+          "param": "href",
+          "function": "attr"
+        }
+      },
+      "tagRule": {
+        "name": {
+          "selector": "this",
+          "function": "text"
+        },
+        "url": {
+          "replacement": "/search?title=$1&page={page:}",
+          "regex": "title=(.+)",
+          "function": "attr",
+          "selector": "this",
+          "param": "href"
+        },
+        "item": {
+          "selector": ".detail-info-tip a"
+        }
+      },
+      "title": {
+        "function": "text",
+        "selector": ".detail-info-title"
+      },
+      "cover": {
+        "param": "src",
+        "function": "attr",
+        "selector": ".detail-info img"
+      },
+      "rating": {
+        "selector": "p.detail-info-stars span",
+        "replacement": "$1/2",
+        "regex": "(.+)分",
+        "function": "text"
+      },
+      "desc": {
+        "function": "text",
+        "selector": ".detail-info-content"
+      }
+    },
+    "gallery": {
+      "image": {
+        "function": "attr",
+        "param": "data-src, src",
+        "selector": "this"
+      },
+      "httpHeaders": "{\"User-Agent\": \"Mozilla/5.0 (iPhone; CPU iPhone OS 18_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1\"}",
+      "item": {
+        "selector": "#cp_img>img"
+      },
+      "secondLevelPageUrl": {
+        "regex": "MANGABZ_MID=(\\d+);.+MANGABZ_CID=(\\d+).+MANGABZ_VIEWSIGN=\"(.+?)\".+MANGABZ_VIEWSIGN_DT=\"(.+?)\"",
+        "replacement": "https://{domain:}/m$2/chapterimage.ashx?cid=$2&page=1&key=&_cid=$2&_mid=$1&_dt=$4&_sign=$3"
+      }
+    },
+    "series": {
+      "title": {
+        "selector": "this",
+        "function": "text"
+      },
+      "idCode": {
+        "regex": "manga-list-(\\d+)-(\\d+)-(\\d+)",
+        "selector": "this",
+        "param": "href",
+        "replacement": "tagid=$1&status=$2",
+        "function": "attr"
+      },
+      "item": {
+        "param": "href",
+        "function": "attr",
+        "regex": "manga-list-\\d+-\\d+-10",
+        "selector": "div.class-line a"
+      }
+    },
+    "search": {
+      "uploader": {
+        "function": "text",
+        "selector": ".chapter a"
+      },
+      "cover": {
+        "param": "src",
+        "function": "attr",
+        "selector": "img"
+      },
+      "idCode": {
+        "selector": "a",
+        "param": "href",
+        "regex": "/(.+)/",
+        "function": "attr"
+      },
+      "item": {
+        "selector": ".mh-list .mh-item"
+      },
+      "title": {
+        "function": "text",
+        "selector": ".title"
+      }
+    },
+    "tagSearch": {
+      "idCode": {
+        "param": "href",
+        "regex": "/(.+)/",
+        "function": "attr",
+        "selector": "a"
+      },
+      "title": {
+        "function": "text",
+        "selector": ".title"
+      },
+      "item": {
+        "selector": ".mh-list .mh-item"
+      },
+      "cover": {
+        "selector": "img",
+        "function": "attr",
+        "param": "src"
+      },
+      "uploader": {
+        "function": "text",
+        "selector": ".chapter a"
+      }
+    },
+    "extra": null
+  },
+  "namedRules": {
+    "list": [
+      {
+        "pk": 4,
+        "name": "List: Rank",
+        "rule": {
+          "idCode": {
+            "selector": "this",
+            "param": "href",
+            "regex": "/(.+)/",
+            "function": "attr"
+          },
+          "category": {
+            "function": "text",
+            "selector": "p.nth-of-type(3) span"
+          },
+          "author": {
+            "selector": ".manga-item-subtitle",
+            "function": "text",
+            "regex": "作者：(.+)"
+          },
+          "title": {
+            "function": "text",
+            "selector": ".manga-item-title"
+          },
+          "index": 1,
+          "cover": {
+            "param": "src",
+            "function": "attr",
+            "selector": "img"
+          },
+          "item": {
+            "selector": ".manga-list>a"
+          },
+          "name": "List: Rank"
+        }
+      },
+      {
+        "pk": 6,
+        "name": "List: Home",
+        "rule": {
+          "idCode": {
+            "selector": "a",
+            "param": "href",
+            "regex": "/(.+)/",
+            "function": "attr"
+          },
+          "category": {
+            "function": "text",
+            "selector": ".index-manga-item-subtitle span , .carousel-right-item-tag span"
+          },
+          "title": {
+            "function": "text",
+            "selector": ".index-manga-item-title, .carousel-right-item-title"
+          },
+          "index": 0,
+          "cover": {
+            "selector": "img",
+            "function": "attr",
+            "param": "src"
+          },
+          "item": {
+            "selector": ".index-manga-item, .carousel-right-item"
+          },
+          "name": "List: Home"
+        }
+      }
+    ],
+    "detail": [],
+    "gallery": [],
+    "series": []
+  },
+  "pages": [
+    {
+      "pk": 9,
+      "name": "上架時間",
+      "listUrl": "http://{domain:}/manga-list/mangabz.ashx?action=getclasscomics&pageindex={page:}&pagesize=21&tagid=0&status=0&sort=18",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 10,
+      "name": "人氣",
+      "listUrl": "http://{domain:}/manga-list/mangabz.ashx?action=getclasscomics&pageindex={page:}&pagesize=21&tagid=0&status=0&sort=10",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 11,
+      "name": "首頁",
+      "listUrl": "http://{domain:}/",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": 6,
+      "listRule": {
+        "idCode": {
+          "selector": "a",
+          "param": "href",
+          "regex": "/(.+)/",
+          "function": "attr"
+        },
+        "category": {
+          "function": "text",
+          "selector": ".index-manga-item-subtitle span , .carousel-right-item-tag span"
+        },
+        "title": {
+          "function": "text",
+          "selector": ".index-manga-item-title, .carousel-right-item-title"
+        },
+        "index": 0,
+        "cover": {
+          "selector": "img",
+          "function": "attr",
+          "param": "src"
+        },
+        "item": {
+          "selector": ".index-manga-item, .carousel-right-item"
+        },
+        "name": "List: Home"
+      },
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 68,
+      "name": "分類",
+      "listUrl": "http://{domain:}/manga-list/mangabz.ashx?action=getclasscomics&pageindex={page:}&pagesize=21&{idCode:}&sort=2",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "tag, default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 69,
+      "name": "更新時間",
+      "listUrl": "http://{domain:}/manga-list/mangabz.ashx?action=getclasscomics&pageindex={page:}&pagesize=21&tagid=0&status=0&sort=2",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 70,
+      "name": "排行榜",
+      "listUrl": "http://{domain:}/manga-rank/",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": 4,
+      "listRule": {
+        "idCode": {
+          "selector": "this",
+          "param": "href",
+          "regex": "/(.+)/",
+          "function": "attr"
+        },
+        "category": {
+          "function": "text",
+          "selector": "p.nth-of-type(3) span"
+        },
+        "author": {
+          "selector": ".manga-item-subtitle",
+          "function": "text",
+          "regex": "作者：(.+)"
+        },
+        "title": {
+          "function": "text",
+          "selector": ".manga-item-title"
+        },
+        "index": 1,
+        "cover": {
+          "param": "src",
+          "function": "attr",
+          "selector": "img"
+        },
+        "item": {
+          "selector": ".manga-list>a"
+        },
+        "name": "List: Rank"
+      },
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    }
+  ]
+}

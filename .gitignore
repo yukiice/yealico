@@ -74,9 +74,5 @@ yarn-error.log
 !.yarn/sdks
 !.yarn/versions
 
-# Local Yealico rule extraction (author data / personal container)
-artifacts/yealico-rules/
-artifacts/yealico-export-sample.json
-
-# Third-party article screenshots used for analysis
+# Third-party article screenshots used for analysis (not redistributed)
 artifacts/lucky/

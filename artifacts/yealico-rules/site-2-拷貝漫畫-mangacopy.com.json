@@ -1,0 +1,616 @@
+{
+  "meta": {
+    "bundleId": "work.cmbook.ComiGa",
+    "sitePk": 2,
+    "name": "拷貝漫畫",
+    "domain": "mangacopy.com",
+    "version": "2.15@wc3818290",
+    "author": "wc3818290",
+    "displayMode": "default, collection, default, default",
+    "flags": "",
+    "extractedAt": "2026-10-20T10:58:41.286955+00:00"
+  },
+  "urls": {
+    "index": "https://www.{domain:}/",
+    "detail": "https://www.{domain:}/comic/{idCode:}",
+    "gallery": "",
+    "search": "https://www.{domain:}/api/kb/web/searchci/comics?offset={page:0:15}&platform=2&limit=15&q={keyword:}"
+  },
+  "loginUrl": "",
+  "headers": {
+    "site": "{\"dnts\": \"3\"}",
+    "index": null,
+    "detail": null,
+    "gallery": null,
+    "search": null,
+    "series": null,
+    "tag": null,
+    "image": null
+  },
+  "rules": {
+    "index": {
+      "author": {
+        "function": "text",
+        "selector": ".exemptComicItem-txt-span a, .correlationItem-txt-span a"
+      },
+      "item": {
+        "selector": ".exemptComicItem, .correlationItem, .exemptComic_Item"
+      },
+      "cover": {
+        "function": "attr",
+        "selector": "img",
+        "param": "data-src, src"
+      },
+      "idCode": {
+        "param": "href",
+        "function": "attr",
+        "regex": "comic/(.+)",
+        "selector": "a"
+      },
+      "title": {
+        "function": "text",
+        "selector": ".exemptComicItem-txt a p, .correlationItem-txt a p"
+      }
+    },
+    "detail": {
+      "author": {
+        "selector": ".comicParticulars-title-right ul li:nth-of-type(3) span:nth-of-type(2)",
+        "function": "text"
+      },
+      "category": {
+        "function": "text",
+        "selector": ".comicParticulars-title-right ul li:nth-of-type(6) span:nth-of-type(2)"
+      },
+      "chapterRule": {
+        "idCode": {
+          "regex": "comic/(.+)",
+          "selector": "this",
+          "function": "attr",
+          "param": "href"
+        },
+        "datetime": {},
+        "title": {
+          "function": "text",
+          "selector": "li"
+        },
+        "item": {
+          "selector": "ul.table-all a"
+        }
+      },
+      "photoAlbumLink": {
+        "regex": "comic%2F(.+)",
+        "function": "attr",
+        "param": "value",
+        "replacement": "https://www.{domain:}/comicdetail/$1/chapters",
+        "selector": ".alert-body-input"
+      },
+      "tagRule": {
+        "name": {
+          "function": "text",
+          "selector": "this"
+        },
+        "item": {
+          "selector": ".comicParticulars-title-right a:not([role])"
+        },
+        "url": {
+          "selector": "this",
+          "param": "href",
+          "replacement": "$1?$2&offset={page:0:50}&limit=50|{source:}",
+          "regex": "(.+)\\?(.+)",
+          "function": "attr"
+        }
+      },
+      "title": {
+        "selector": "h6",
+        "function": "text"
+      },
+      "datetime": {
+        "function": "text",
+        "selector": ".comicParticulars-title-right ul li:nth-of-type(5) span:nth-of-type(2)"
+      },
+      "cover": {
+        "selector": ".comicParticulars-left-img img",
+        "function": "attr",
+        "param": "data-src, src"
+      },
+      "desc": {
+        "function": "text",
+        "selector": "p.intro"
+      }
+    },
+    "gallery": {
+      "item": {
+        "function": "attr",
+        "param": "class",
+        "replacement": "ul.comicContent-image-all li img",
+        "selector": "div.disData"
+      },
+      "image": {
+        "function": "attr",
+        "selector": "this",
+        "param": "class"
+      }
+    },
+    "series": {
+      "idCode": {
+        "regex": "theme=(.+)",
+        "function": "attr",
+        "param": "href",
+        "selector": "this"
+      },
+      "item": {
+        "selector": ".screenAll-clarity-all a"
+      },
+      "title": {
+        "function": "text",
+        "selector": "this"
+      }
+    },
+    "search": {
+      "cover": {
+        "selector": "$.cover"
+      },
+      "idCode": {
+        "selector": "$.path_word"
+      },
+      "title": {
+        "selector": "$.name"
+      },
+      "author": {
+        "selector": "$.author[0].name"
+      },
+      "item": {
+        "selector": "$.results.list"
+      }
+    },
+    "tagSearch": {
+      "idCode": {
+        "function": "attr",
+        "regex": "comic/(.+)",
+        "param": "href",
+        "selector": "a"
+      },
+      "title": {
+        "function": "text",
+        "selector": ".exemptComicItem-txt a p, .correlationItem-txt a p"
+      },
+      "author": {
+        "function": "text",
+        "selector": ".exemptComicItem-txt-span a, .correlationItem-txt-span a"
+      },
+      "cover": {
+        "selector": "img",
+        "function": "attr",
+        "param": "data-src, src"
+      },
+      "item": {
+        "selector": ".exemptComicItem, .correlationItem"
+      }
+    },
+    "extra": null
+  },
+  "namedRules": {
+    "list": [
+      {
+        "pk": 1,
+        "name": "List: Home",
+        "rule": {
+          "name": "List: Home",
+          "cover": {
+            "function": "attr",
+            "selector": "img",
+            "param": "data-src, src"
+          },
+          "idCode": {
+            "function": "attr",
+            "param": "href",
+            "selector": "this",
+            "regex": "comic/(.+)"
+          },
+          "title": {
+            "function": "text",
+            "selector": "p"
+          },
+          "index": 0,
+          "item": {
+            "selector": "div.container div.row div.col-auto a"
+          }
+        }
+      },
+      {
+        "pk": 8,
+        "name": "List: Rank",
+        "rule": {
+          "idCode": {
+            "function": "attr",
+            "regex": "comic/(.+)",
+            "param": "href",
+            "selector": "a"
+          },
+          "author": {
+            "function": "text",
+            "selector": "span.oneLines a"
+          },
+          "title": {
+            "function": "text",
+            "selector": "p.threeLines"
+          },
+          "index": 1,
+          "item": {
+            "selector": "ul.ranking-all li"
+          },
+          "cover": {
+            "function": "attr",
+            "selector": "div.ranking-all-topThree-img img",
+            "param": "data-src, src"
+          },
+          "name": "List: Rank"
+        }
+      }
+    ],
+    "detail": [],
+    "gallery": [],
+    "series": []
+  },
+  "pages": [
+    {
+      "pk": 2,
+      "name": "題材",
+      "listUrl": "https://www.{domain:}/comics?theme={idCode:}&offset={page:0:50}&limit=50",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "tag, default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 3,
+      "name": "月榜",
+      "listUrl": "https://www.{domain:}/rank?table=month",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": 8,
+      "listRule": {
+        "idCode": {
+          "function": "attr",
+          "regex": "comic/(.+)",
+          "param": "href",
+          "selector": "a"
+        },
+        "author": {
+          "function": "text",
+          "selector": "span.oneLines a"
+        },
+        "title": {
+          "function": "text",
+          "selector": "p.threeLines"
+        },
+        "index": 1,
+        "item": {
+          "selector": "ul.ranking-all li"
+        },
+        "cover": {
+          "function": "attr",
+          "selector": "div.ranking-all-topThree-img img",
+          "param": "data-src, src"
+        },
+        "name": "List: Rank"
+      },
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 4,
+      "name": "日榜",
+      "listUrl": "https://www.{domain:}/rank?table=day",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": 8,
+      "listRule": {
+        "idCode": {
+          "function": "attr",
+          "regex": "comic/(.+)",
+          "param": "href",
+          "selector": "a"
+        },
+        "author": {
+          "function": "text",
+          "selector": "span.oneLines a"
+        },
+        "title": {
+          "function": "text",
+          "selector": "p.threeLines"
+        },
+        "index": 1,
+        "item": {
+          "selector": "ul.ranking-all li"
+        },
+        "cover": {
+          "function": "attr",
+          "selector": "div.ranking-all-topThree-img img",
+          "param": "data-src, src"
+        },
+        "name": "List: Rank"
+      },
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 5,
+      "name": "已完結",
+      "listUrl": "https://www.{domain:}/comics?status=1&offset={page:0:50}&limit=50",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 6,
+      "name": "韓漫",
+      "listUrl": "https://www.{domain:}/comics?region=1&offset={page:0:50}&limit=50",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 7,
+      "name": "熱門",
+      "listUrl": "https://www.{domain:}/comics?ordering=-popular&offset={page:0:50}&limit=50",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 8,
+      "name": "更新",
+      "listUrl": "https://www.{domain:}/comics?ordering=-datetime_updated&offset={page:0:50}&limit=50",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 59,
+      "name": "總榜單",
+      "listUrl": "https://www.{domain:}/rank?table=total",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": 8,
+      "listRule": {
+        "idCode": {
+          "function": "attr",
+          "regex": "comic/(.+)",
+          "param": "href",
+          "selector": "a"
+        },
+        "author": {
+          "function": "text",
+          "selector": "span.oneLines a"
+        },
+        "title": {
+          "function": "text",
+          "selector": "p.threeLines"
+        },
+        "index": 1,
+        "item": {
+          "selector": "ul.ranking-all li"
+        },
+        "cover": {
+          "function": "attr",
+          "selector": "div.ranking-all-topThree-img img",
+          "param": "data-src, src"
+        },
+        "name": "List: Rank"
+      },
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 60,
+      "name": "短篇",
+      "listUrl": "https://www.{domain:}/comics?status=2&offset={page:0:50}&limit=50",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 61,
+      "name": "周榜",
+      "listUrl": "https://www.{domain:}/rank?table=week",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": 8,
+      "listRule": {
+        "idCode": {
+          "function": "attr",
+          "regex": "comic/(.+)",
+          "param": "href",
+          "selector": "a"
+        },
+        "author": {
+          "function": "text",
+          "selector": "span.oneLines a"
+        },
+        "title": {
+          "function": "text",
+          "selector": "p.threeLines"
+        },
+        "index": 1,
+        "item": {
+          "selector": "ul.ranking-all li"
+        },
+        "cover": {
+          "function": "attr",
+          "selector": "div.ranking-all-topThree-img img",
+          "param": "data-src, src"
+        },
+        "name": "List: Rank"
+      },
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 62,
+      "name": "日漫",
+      "listUrl": "https://www.{domain:}/comics?region=0&offset={page:0:50}&limit=50",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 63,
+      "name": "連載中",
+      "listUrl": "https://www.{domain:}/comics?status=0&offset={page:0:50}&limit=50",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 64,
+      "name": "全新上架",
+      "listUrl": "https://www.{domain:}/newest?offset={page:0:60}&limit=60",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 65,
+      "name": "發現",
+      "listUrl": "https://www.{domain:}/",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": 1,
+      "listRule": {
+        "name": "List: Home",
+        "cover": {
+          "function": "attr",
+          "selector": "img",
+          "param": "data-src, src"
+        },
+        "idCode": {
+          "function": "attr",
+          "param": "href",
+          "selector": "this",
+          "regex": "comic/(.+)"
+        },
+        "title": {
+          "function": "text",
+          "selector": "p"
+        },
+        "index": 0,
+        "item": {
+          "selector": "div.container div.row div.col-auto a"
+        }
+      },
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    }
+  ]
+}

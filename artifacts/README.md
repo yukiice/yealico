@@ -1,0 +1,39 @@
+# 本地规则与测试证据
+
+本目录用于私有仓库的兼容性测试，**不要公开再分发**。
+
+## `yealico-rules/`
+
+从本机 macOS 版 Yealico 7.2.4 的容器 SQLite（`ComiGa.sqlite`）只读提取：
+
+- 6 个站点条目，含禁漫天堂 2.26、阿巴基猫 2.4
+- 只包含站点元数据、URL、规则 JSON、命名规则、页面引用
+- **不包含** Cookie、账号、收藏、历史、下载任务
+- 作者：`wc3818290`
+- 提取脚本：`scripts/extract_yealico_rules.py`
+- 方法说明：`docs/rules/yealico-macos-sqlite.md`
+
+用途：
+
+- `__tests__/real-rules.test.ts` 的真实规则回归
+- P2/P3 的 Detail/Gallery、pages、分页验证
+- 另一台机器无需 macOS Yealico 也能跑真实规则测试
+
+## `yealico-export-sample.json`
+
+用户提供的 Yealico 加密导出样本：
+
+- 外层 `{"encrypted":"v2:<base64>"}`
+- 3840 bytes 高熵数据，未解出明文
+- 仅用于格式研究，不当作规则导入
+
+## `p1-android*.png`
+
+Android 模拟器上的 P1 自检证据：
+
+- `p1-android-pass.png`：10/10 通过
+- `p1-android.png`：早期 URL polyfill 失败证据
+
+## `lucky/`
+
+第三方文章截图，仅本地分析使用，**未提交、未再分发**。

@@ -1,0 +1,871 @@
+{
+  "meta": {
+    "bundleId": "work.cmbook.ComiGa",
+    "sitePk": 1,
+    "name": "→禁漫天堂",
+    "domain": "jm18c-dfg.cc",
+    "version": "2.26@wc3818290",
+    "author": "wc3818290",
+    "displayMode": "tag, collection, default, default",
+    "flags": "",
+    "extractedAt": "2026-10-20T10:58:41.286955+00:00"
+  },
+  "urls": {
+    "index": "https://{domain:}/",
+    "detail": "https://{domain:}/album/{idCode:}/",
+    "gallery": "",
+    "search": "https://{domain:}/search/photos?search_query={keyword:}&page={page:1}&main_tag=0"
+  },
+  "loginUrl": "https://{domain:}/",
+  "headers": {
+    "site": null,
+    "index": null,
+    "detail": null,
+    "gallery": null,
+    "search": null,
+    "series": null,
+    "tag": null,
+    "image": null
+  },
+  "rules": {
+    "index": {
+      "idCode": {
+        "param": "href",
+        "regex": "album/(.+)/",
+        "selector": "a",
+        "function": "attr"
+      },
+      "category": {
+        "function": "text",
+        "selector": ".label-category"
+      },
+      "author": {
+        "selector": ".title-truncate a[href*=photos]",
+        "function": "text"
+      },
+      "likes": {
+        "function": "text",
+        "selector": "a[id*=\"love_likes\"]"
+      },
+      "title": {
+        "function": "attr",
+        "selector": "img",
+        "param": "title"
+      },
+      "cover": {
+        "function": "attr",
+        "selector": "a img",
+        "param": "data-original, src"
+      },
+      "item": {
+        "selector": "div.row div.row .list-col:not([style])"
+      }
+    },
+    "detail": {
+      "published": {
+        "function": "attr",
+        "selector": "div[itemprop=\"datePublished\"]",
+        "param": "content"
+      },
+      "author": {
+        "function": "text",
+        "selector": "span[itemprop=\"author\"] a"
+      },
+      "category": {
+        "function": "text",
+        "selector": "span[itemprop=genre] a"
+      },
+      "chapterRule": {
+        "title": {
+          "replacement": "$1 $2|{source:}",
+          "regex": "^(.*?)\\s*\\n\\s*([\\s\\S]+?)\\s*\\n\\s*(.*?)$",
+          "selector": "this",
+          "function": "text"
+        },
+        "datetime": {
+          "function": "text",
+          "replacement": "$3",
+          "regex": "^(.*?)\\s*\\n\\s*([\\s\\S]+?)\\s*\\n\\s*(.*?)$",
+          "selector": "this"
+        },
+        "idCode": {
+          "selector": "this",
+          "param": "href",
+          "regex": "(\\d+)",
+          "function": "attr"
+        },
+        "item": {
+          "selector": "#episode-block a[href^=/photo/], a.reading"
+        },
+        "url": {
+          "selector": "this",
+          "function": "attr",
+          "regex": "(.+)",
+          "param": "href",
+          "replacement": "$1{pageFormat:?page={page:}}"
+        }
+      },
+      "title": {
+        "function": "text",
+        "selector": "div.panel-heading>div.pull-left"
+      },
+      "tagRule": {
+        "name": {
+          "function": "text",
+          "selector": "this"
+        },
+        "url": {
+          "function": "attr",
+          "param": "href",
+          "selector": "this",
+          "regex": "(.*)",
+          "replacement": "$1&page={page:1}"
+        },
+        "item": {
+          "selector": "#intro-block .tag-block .btn-primary"
+        }
+      },
+      "datetime": {
+        "function": "attr",
+        "selector": "div[itemprop=\"datePublished\"]",
+        "param": "content"
+      },
+      "desc": {
+        "replacement": "$1|{source:}",
+        "function": "text",
+        "selector": "#intro-block .p-t-5",
+        "regex": "叙述：([\\s\\S]+)"
+      }
+    },
+    "gallery": {
+      "image": {
+        "selector": "this",
+        "param": "data-original, src",
+        "function": "attr"
+      },
+      "totalPages": {
+        "param": "href",
+        "function": "attr",
+        "selector": ".pagination li:last-of-type a",
+        "regex": "page=(.+)"
+      },
+      "item": {
+        "selector": "div > div.scramble-page > img"
+      }
+    },
+    "series": {
+      "idCode": {
+        "function": "text",
+        "selector": "this"
+      },
+      "title": {
+        "function": "text",
+        "selector": "this"
+      },
+      "item": {
+        "selector": "div.container div.row ul li a[href*=\"search\"]"
+      }
+    },
+    "search": {
+      "idCode": {
+        "function": "attr",
+        "selector": "a",
+        "regex": "album/(.+)/",
+        "param": "href"
+      },
+      "category": {
+        "selector": ".label-category",
+        "function": "text"
+      },
+      "author": {
+        "function": "text",
+        "selector": "div>div:nth-of-type(1) a[href*=photos]"
+      },
+      "likes": {
+        "function": "text",
+        "selector": "a[id*=\"love_likes\"]"
+      },
+      "title": {
+        "function": "attr",
+        "selector": "img",
+        "param": "title"
+      },
+      "item": {
+        "selector": "div.row div.row .list-col:not([style])"
+      },
+      "cover": {
+        "param": "data-original, src",
+        "function": "attr",
+        "selector": "a img"
+      },
+      "nextPageUrl": {
+        "function": "attr",
+        "param": "href",
+        "replacement": "https://{domain:}$1"
+      }
+    },
+    "tagSearch": {
+      "idCode": {
+        "param": "href",
+        "function": "attr",
+        "selector": "a",
+        "regex": "album/(.+)/"
+      },
+      "category": {
+        "function": "text",
+        "selector": ".label-category"
+      },
+      "author": {
+        "selector": "div>div:nth-of-type(1) a[href*=photos]",
+        "function": "text"
+      },
+      "likes": {
+        "function": "text",
+        "selector": "a[id*=\"love_likes\"]"
+      },
+      "title": {
+        "param": "title",
+        "function": "attr",
+        "selector": "img"
+      },
+      "item": {
+        "selector": "div.row div.row .list-col:not([style])"
+      },
+      "cover": {
+        "selector": "a img",
+        "function": "attr",
+        "param": "data-original, src"
+      },
+      "nextPageUrl": {
+        "function": "attr",
+        "param": "href",
+        "replacement": "https://{domain:}$1"
+      }
+    },
+    "extra": null
+  },
+  "namedRules": {
+    "list": [
+      {
+        "pk": 3,
+        "name": "List: Favorite",
+        "rule": {
+          "item": {
+            "selector": "div[id*=\"favorites_album\"]"
+          },
+          "title": {
+            "function": "text",
+            "selector": ".video-title"
+          },
+          "index": 0,
+          "cover": {
+            "selector": "img",
+            "function": "attr",
+            "param": "src"
+          },
+          "idCode": {
+            "param": "href",
+            "function": "attr",
+            "selector": "a",
+            "regex": "album/(.+?)/"
+          },
+          "name": "List: Favorite"
+        }
+      }
+    ],
+    "detail": [],
+    "gallery": [],
+    "series": [
+      {
+        "pk": 2,
+        "name": "Series: 每周必看",
+        "rule": {
+          "index": 1,
+          "title": {
+            "function": "text.replace(\"\\n                                        \",with:\"\")",
+            "selector": ".week-time"
+          },
+          "item": {
+            "selector": ".week-time-toggle>li a"
+          },
+          "name": "Series: 每周必看",
+          "idCode": {
+            "param": "href",
+            "selector": "this",
+            "regex": "week/(\\d+)",
+            "function": "attr"
+          }
+        }
+      },
+      {
+        "pk": 3,
+        "name": "Series: 韩漫",
+        "rule": {
+          "item": {
+            "selector": "div.container div.well div.pull-left ul.dropdown-menu li a[href*=\"albums\"]"
+          },
+          "title": {
+            "function": "text",
+            "selector": "this"
+          },
+          "index": 0,
+          "idCode": {
+            "param": "href",
+            "function": "attr",
+            "selector": "this",
+            "regex": "sub/(.+)"
+          },
+          "name": "Series: 韩漫"
+        }
+      }
+    ]
+  },
+  "pages": [
+    {
+      "pk": 12,
+      "name": "漫畫收藏",
+      "listUrl": "https://18comic.vip/user/yealicoTest/favorite/albums?page={page:}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "loginRequired",
+      "listRulePk": 3,
+      "listRule": {
+        "item": {
+          "selector": "div[id*=\"favorites_album\"]"
+        },
+        "title": {
+          "function": "text",
+          "selector": ".video-title"
+        },
+        "index": 0,
+        "cover": {
+          "selector": "img",
+          "function": "attr",
+          "param": "src"
+        },
+        "idCode": {
+          "param": "href",
+          "function": "attr",
+          "selector": "a",
+          "regex": "album/(.+?)/"
+        },
+        "name": "List: Favorite"
+      },
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 19,
+      "name": "月排行",
+      "listUrl": "https://{domain:}/albums?t=m&o=mv&page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 20,
+      "name": "其他類[Cosplay]",
+      "listUrl": "https://{domain:}/albums/another/sub/cosplay?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 21,
+      "name": "韓漫",
+      "listUrl": "https://{domain:}/albums/hanman?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 22,
+      "name": "單本[漢化]",
+      "listUrl": "https://{domain:}/albums/single/sub/chinese?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 23,
+      "name": "短篇",
+      "listUrl": "https://{domain:}/albums/short?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 27,
+      "name": "最多愛心",
+      "listUrl": "https://{domain:}/albums?o=tf&page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 29,
+      "name": "日排行",
+      "listUrl": "https://{domain:}/albums?t=m&o=mv&page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 30,
+      "name": "其他類",
+      "listUrl": "https://{domain:}/albums/another?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 32,
+      "name": "单本[青年漫]",
+      "listUrl": "https://{domain:}/albums/single/sub/youth?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 34,
+      "name": "短篇[日語]",
+      "listUrl": "https://{domain:}/albums/short/sub/japanese?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 36,
+      "name": "同人[日語]",
+      "listUrl": "https://{domain:}/albums/doujin/sub/japanese?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 45,
+      "name": "同人[漢化]",
+      "listUrl": "https://{domain:}/albums/doujin/sub/chinese?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 46,
+      "name": "同人",
+      "listUrl": "https://{domain:}/albums/doujin?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 47,
+      "name": "A漫",
+      "listUrl": "https://{domain:}/albums/?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 48,
+      "name": "連載更新",
+      "listUrl": "https://{domain:}/promotes/26{pageFormat:?page={page:}}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 51,
+      "name": "每周必看",
+      "listUrl": "https://{domain:}/week/{idCode:}?skdad=1",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "text, default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": 2,
+      "seriesRule": {
+        "index": 1,
+        "title": {
+          "function": "text.replace(\"\\n                                        \",with:\"\")",
+          "selector": ".week-time"
+        },
+        "item": {
+          "selector": ".week-time-toggle>li a"
+        },
+        "name": "Series: 每周必看",
+        "idCode": {
+          "param": "href",
+          "selector": "this",
+          "regex": "week/(\\d+)",
+          "function": "attr"
+        }
+      }
+    },
+    {
+      "pk": 52,
+      "name": "周排行",
+      "listUrl": "https://{domain:}/albums?o=mv&t=w&page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 53,
+      "name": "其他類[3D]",
+      "listUrl": "https://{domain:}/albums/another/sub/3d?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 54,
+      "name": "美漫",
+      "listUrl": "https://{domain:}/albums/meiman?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 55,
+      "name": "單本",
+      "listUrl": "https://{domain:}/albums/single?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 56,
+      "name": "同人[CG圖集]",
+      "listUrl": "https://{domain:}/albums/doujin/sub/CG?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 74,
+      "name": "最多點閱",
+      "listUrl": "https://{domain:}/albums?o=mv&page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 76,
+      "name": "其他類[其他漫畫]",
+      "listUrl": "https://{domain:}/albums/another/sub/other?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 78,
+      "name": "韓漫分类",
+      "listUrl": "https://{domain:}/albums/hanman/sub/{idCode:}?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default, collection",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": 3,
+      "seriesRule": {
+        "item": {
+          "selector": "div.container div.well div.pull-left ul.dropdown-menu li a[href*=\"albums\"]"
+        },
+        "title": {
+          "function": "text",
+          "selector": "this"
+        },
+        "index": 0,
+        "idCode": {
+          "param": "href",
+          "function": "attr",
+          "selector": "this",
+          "regex": "sub/(.+)"
+        },
+        "name": "Series: 韩漫"
+      }
+    },
+    {
+      "pk": 80,
+      "name": "单本[日語]",
+      "listUrl": "https://{domain:}/albums/single/sub/japanese?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 82,
+      "name": "短篇[漢化]",
+      "listUrl": "https://{domain:}/albums/short/sub/chinese?page={page:1}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 92,
+      "name": "主題",
+      "listUrl": "https://{domain:}/search/photos?search_query={idCode:}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default, collection",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 93,
+      "name": "本本推薦",
+      "listUrl": "https://{domain:}/promotes/29{pageFormat:?page={page:}}",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    }
+  ]
+}

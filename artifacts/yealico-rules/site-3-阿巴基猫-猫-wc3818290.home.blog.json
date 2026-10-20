@@ -1,0 +1,303 @@
+{
+  "meta": {
+    "bundleId": "work.cmbook.ComiGa",
+    "sitePk": 3,
+    "name": "阿巴基猫 あばき猫",
+    "domain": "wc3818290.home.blog",
+    "version": "2.4@wc3818290",
+    "author": "wc3818290",
+    "displayMode": "default, waterfall, waterfall, text",
+    "flags": "",
+    "extractedAt": "2026-10-20T10:58:41.286955+00:00"
+  },
+  "urls": {
+    "index": "https://{domain:}/category/%e7%ab%99%e7%82%b9%e8%a7%84%e5%88%99/page/{page:}/",
+    "detail": "https://{domain:}/{idCode:}/",
+    "gallery": "",
+    "search": "https://{domain:}/?s={keyword:}"
+  },
+  "loginUrl": "",
+  "headers": {
+    "site": null,
+    "index": null,
+    "detail": null,
+    "gallery": null,
+    "search": null,
+    "series": null,
+    "tag": null,
+    "image": null
+  },
+  "rules": {
+    "index": {
+      "item": {
+        "selector": "main.archive-list .wp-block-post, main.search-result .wp-block-post"
+      },
+      "cover": {
+        "param": "src",
+        "function": "attr",
+        "selector": "img"
+      },
+      "coverWidth": {
+        "replacement": "1",
+        "selector": "this"
+      },
+      "idCode": {
+        "regex": "{domain:}/(.+)/",
+        "selector": "a",
+        "function": "attr",
+        "param": "href"
+      },
+      "coverHeight": {
+        "replacement": "1",
+        "selector": "this"
+      },
+      "category": {
+        "selector": ".taxonomy-category>a:last-of-type",
+        "function": "text"
+      },
+      "datetime": {
+        "function": "text",
+        "selector": "time"
+      },
+      "title": {
+        "regex": "(Site Rule:|站点规则：|サイトルール：)(.+)",
+        "replacement": "$2|{source:}",
+        "function": "text",
+        "selector": "a"
+      }
+    },
+    "detail": {
+      "category": {
+        "function": "text",
+        "selector": ".taxonomy-category>a:last-of-type"
+      },
+      "pictureRule": {
+        "item": {
+          "selector": ".entry-content img"
+        },
+        "thumbnail": {
+          "selector": "this",
+          "function": "attr",
+          "param": "src"
+        },
+        "url": {
+          "function": "attr",
+          "selector": "this",
+          "param": "src"
+        }
+      },
+      "cover": {
+        "function": "attr",
+        "param": "src",
+        "selector": ".entry-content img"
+      },
+      "tagRule": {
+        "name": {
+          "selector": "this",
+          "function": "text"
+        },
+        "url": {
+          "regex": "(.+)",
+          "replacement": "$1page/{page:}/",
+          "param": "href",
+          "function": "attr",
+          "selector": "this"
+        },
+        "item": {
+          "selector": ".taxonomy-category>a:last-of-type, .taxonomy-post_tag>a"
+        }
+      },
+      "desc": {
+        "function": "text",
+        "selector": ".entry-content>p"
+      }
+    },
+    "gallery": null,
+    "series": null,
+    "search": {
+      "item": {
+        "regex": "(Site Rule:|站点规则：|サイトルール：)",
+        "function": "html",
+        "selector": "main.archive-list .wp-block-post, main.search-result .wp-block-post"
+      },
+      "cover": {
+        "function": "attr",
+        "param": "src",
+        "selector": "img"
+      },
+      "coverWidth": {
+        "regex": "(.)",
+        "selector": "img",
+        "replacement": "1"
+      },
+      "idCode": {
+        "regex": "{domain:}/(.+)/",
+        "param": "href",
+        "function": "attr",
+        "selector": "a"
+      },
+      "coverHeight": {
+        "regex": "(.)",
+        "replacement": "1",
+        "selector": "img"
+      },
+      "category": {
+        "selector": ".taxonomy-category>a:last-of-type",
+        "function": "text"
+      },
+      "datetime": {
+        "function": "text",
+        "selector": "time"
+      },
+      "title": {
+        "function": "text",
+        "selector": "a"
+      }
+    },
+    "tagSearch": null,
+    "extra": null
+  },
+  "namedRules": {
+    "list": [
+      {
+        "pk": 9,
+        "name": "List: recently",
+        "rule": {
+          "datetime": {
+            "function": "text",
+            "regex": "\\[(.+)\\]",
+            "selector": "this"
+          },
+          "name": "List: recently",
+          "title": {
+            "function": "text",
+            "regex": "\\](.+)",
+            "selector": "this"
+          },
+          "item": {
+            "selector": ".entry-content p"
+          },
+          "idCode": {
+            "regex": "{domain:}/(.+)/",
+            "param": "href",
+            "function": "attr",
+            "selector": "a"
+          },
+          "index": 0
+        }
+      }
+    ],
+    "detail": [],
+    "gallery": [],
+    "series": []
+  },
+  "pages": [
+    {
+      "pk": 1,
+      "name": "图集规则",
+      "listUrl": "https://{domain:}/category/%e7%ab%99%e7%82%b9%e8%a7%84%e5%88%99/%e5%9b%be%e9%9b%86%e8%a7%84%e5%88%99/page/{page:}/",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 44,
+      "name": "站点大全",
+      "listUrl": "https://{domain:}/category/%e7%ab%99%e7%82%b9%e8%a7%84%e5%88%99/page/{page:}/",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 49,
+      "name": "视频规则",
+      "listUrl": "https://{domain:}/category/%e7%ab%99%e7%82%b9%e8%a7%84%e5%88%99/%e8%a7%86%e9%a2%91%e8%a7%84%e5%88%99/page/{page:}/",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 50,
+      "name": "漫画规则",
+      "listUrl": "https://{domain:}/category/%e7%ab%99%e7%82%b9%e8%a7%84%e5%88%99/%e6%bc%ab%e7%94%bb%e8%a7%84%e5%88%99/page/{page:}/",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default",
+      "flags": "default",
+      "listRulePk": null,
+      "listRule": null,
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    },
+    {
+      "pk": 91,
+      "name": "最近更新",
+      "listUrl": "https://{domain:}/update_history/",
+      "detailUrl": null,
+      "galleryUrl": null,
+      "displayMode": "default, text",
+      "flags": "default",
+      "listRulePk": 9,
+      "listRule": {
+        "datetime": {
+          "function": "text",
+          "regex": "\\[(.+)\\]",
+          "selector": "this"
+        },
+        "name": "List: recently",
+        "title": {
+          "function": "text",
+          "regex": "\\](.+)",
+          "selector": "this"
+        },
+        "item": {
+          "selector": ".entry-content p"
+        },
+        "idCode": {
+          "regex": "{domain:}/(.+)/",
+          "param": "href",
+          "function": "attr",
+          "selector": "a"
+        },
+        "index": 0
+      },
+      "detailRulePk": null,
+      "detailRule": null,
+      "galleryRulePk": null,
+      "galleryRule": null,
+      "seriesRulePk": null,
+      "seriesRule": null
+    }
+  ]
+}
