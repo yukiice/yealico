@@ -1,0 +1,8 @@
+{
+  "baseUrl": "https://example.test/api/list?page=1",
+  "items": [
+    { "title": "一" },
+    { "title": "二" },
+    { "title": "三" }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "Synthetic Gallery",
+  "domain": "example.test",
+  "indexUrl": "https://example.test/list/{page:1}",
+  "detailUrl": "https://example.test/comic/{idCode:}.html",
+  "galleryUrl": "https://example.test/gallery/{cidCode:}/{page:1}",
+  "galleryRule": {
+    "totalPages": {
+      "selector": "span.total-pages",
+      "function": "text"
+    },
+    "item": {
+      "selector": "#gallery img.page"
+    },
+    "image": {
+      "selector": "this",
+      "function": "attr",
+      "param": "src",
+      "absoluteUrl": true
+    }
+  }
+}

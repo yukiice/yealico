@@ -1,0 +1,26 @@
+{
+  "baseUrl": "https://example.test/list/1",
+  "items": [
+    {
+      "idCode": "a-1",
+      "title": "作品 A",
+      "cover": "https://example.test/img/a-1-large.jpg",
+      "author": "作者甲",
+      "rating": "4.5"
+    },
+    {
+      "idCode": "a-2",
+      "title": "作品 B",
+      "cover": "https://example.test/img/a-2-large.jpg",
+      "author": "作者乙",
+      "rating": "3.0"
+    },
+    {
+      "idCode": "a-3",
+      "title": "作品 C",
+      "cover": "https://example.test/img/a-3-large.jpg",
+      "author": "作者丙",
+      "rating": "4.8"
+    }
+  ]
+}

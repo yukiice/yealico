@@ -1,0 +1,42 @@
+{
+  "name": "Synthetic List",
+  "domain": "example.test",
+  "displayMode": "collection",
+  "indexUrl": "https://example.test/list/{page:1}",
+  "detailUrl": "https://example.test/comic/{idCode:}.html",
+  "headers": {
+    "X-Site": "synthetic"
+  },
+  "indexRule": {
+    "item": {
+      "selector": "ul.comic-list > li.comic-item"
+    },
+    "idCode": {
+      "selector": "a.title",
+      "function": "attr",
+      "param": "href",
+      "regex": "/comic/([^/]+)[.]html",
+      "replacement": "$1"
+    },
+    "title": {
+      "selector": "a.title",
+      "function": "text"
+    },
+    "cover": {
+      "selector": "img.cover",
+      "function": "attr",
+      "param": "data-src",
+      "absoluteUrl": true
+    },
+    "author": {
+      "selector": "span.author",
+      "function": "text"
+    },
+    "rating": {
+      "selector": "span.rating",
+      "function": "text",
+      "regex": "([0-9.]+)",
+      "replacement": "$1"
+    }
+  }
+}

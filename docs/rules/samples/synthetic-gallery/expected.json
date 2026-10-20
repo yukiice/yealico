@@ -1,0 +1,9 @@
+{
+  "baseUrl": "https://example.test/gallery/ch-1/1",
+  "totalPages": 3,
+  "images": [
+    "https://example.test/img/p1.jpg",
+    "https://example.test/img/p2.jpg",
+    "https://example.test/img/p3.jpg"
+  ]
+}

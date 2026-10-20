@@ -1,0 +1,250 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import {
+  applyRegex,
+  buildRoutePlan,
+  executeGallery,
+  executeList,
+  expandUrl,
+  parseFunctionChain,
+  queryJsonPath,
+  resolveUrl,
+  validateJsonPath,
+} from '../src/engine';
+import type { RuleDocument } from '../src/engine';
+
+function fixture(...parts: string[]): string {
+  return readFileSync(
+    join(__dirname, '..', 'docs', 'rules', 'samples', ...parts),
+    'utf8',
+  );
+}
+
+describe('P1 golden fixtures', () => {
+  test('list: CSS + attr/text + regex + relative url', () => {
+    const rule = JSON.parse(fixture('synthetic-list', 'rule.json')) as RuleDocument;
+    const expected = JSON.parse(fixture('synthetic-list', 'expected.json')) as {
+      baseUrl: string;
+      items: unknown;
+    };
+    const plan = buildRoutePlan(rule);
+
+    expect(plan.capabilities.static).toBe(true);
+    expect(plan.unsupported).toEqual([]);
+
+    const result = executeList(rule, plan, fixture('synthetic-list', 'page.html'), {
+      baseUrl: expected.baseUrl,
+      page: 1,
+      domain: rule.domain,
+    });
+
+    expect(result.items).toEqual(expected.items);
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  test('gallery: GalleryRule + totalPages + absolute image urls', () => {
+    const rule = JSON.parse(fixture('synthetic-gallery', 'rule.json')) as RuleDocument;
+    const expected = JSON.parse(fixture('synthetic-gallery', 'expected.json')) as {
+      baseUrl: string;
+      totalPages: number;
+      images: string[];
+    };
+    const plan = buildRoutePlan(rule);
+
+    const result = executeGallery(
+      rule,
+      plan,
+      fixture('synthetic-gallery', 'page.html'),
+      {
+        baseUrl: expected.baseUrl,
+        page: 1,
+        domain: rule.domain,
+      },
+    );
+
+    expect(result.totalPages).toBe(expected.totalPages);
+    expect(result.images).toEqual(expected.images);
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  test('json: JSONPath subset + this/text', () => {
+    const rule = JSON.parse(fixture('synthetic-json', 'rule.json')) as RuleDocument;
+    const expected = JSON.parse(fixture('synthetic-json', 'expected.json')) as {
+      baseUrl: string;
+      items: unknown;
+    };
+    const plan = buildRoutePlan(rule);
+
+    const result = executeList(
+      rule,
+      plan,
+      fixture('synthetic-json', 'response.json'),
+      {
+        baseUrl: expected.baseUrl,
+        page: 1,
+        domain: rule.domain,
+      },
+    );
+
+    expect(result.items).toEqual(expected.items);
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  test('unsupported: capabilities and structured diagnostics', () => {
+    const rule = JSON.parse(
+      fixture('synthetic-unsupported', 'rule.json'),
+    ) as RuleDocument;
+    const expected = JSON.parse(
+      fixture('synthetic-unsupported', 'expected-plan.json'),
+    ) as {
+      capabilities: Record<string, unknown>;
+      unsupported: Array<{ code: string; fieldPath: string }>;
+    };
+
+    const plan = buildRoutePlan(rule);
+
+    expect(plan.capabilities).toEqual(expected.capabilities);
+    expect(
+      plan.unsupported.map(item => `${item.code}:${item.fieldPath}`).sort(),
+    ).toEqual(
+      expected.unsupported.map(item => `${item.code}:${item.fieldPath}`).sort(),
+    );
+  });
+});
+
+describe('URL placeholders', () => {
+  test('page and pageFormat', () => {
+    expect(
+      expandUrl('https://example.test/list/{page:1}', {
+        baseUrl: 'https://example.test/list/1',
+        page: 1,
+      }).url,
+    ).toBe('https://example.test/list/1');
+
+    expect(
+      expandUrl('https://example.test/list/{page:2:2}', {
+        baseUrl: 'https://example.test/list/2',
+        page: 3,
+      }).url,
+    ).toBe('https://example.test/list/6');
+
+    const template = 'https://example.test/list{pageFormat:/page/{page:1}}';
+    expect(
+      expandUrl(template, {
+        baseUrl: 'https://example.test/list',
+        page: 1,
+      }).url,
+    ).toBe('https://example.test/list');
+    expect(
+      expandUrl(template, {
+        baseUrl: 'https://example.test/list',
+        page: 2,
+      }).url,
+    ).toBe('https://example.test/list/page/2');
+  });
+
+  test('urlPath, urlQuery and scheme/host/port', () => {
+    const context = {
+      baseUrl: 'https://example.test/v1/api/list/detail?id=100&lang=en',
+      page: 1,
+    };
+
+    expect(expandUrl('{urlPath:0}', context).url).toBe('example.test');
+    expect(expandUrl('{urlPath:1}', context).url).toBe('v1');
+    expect(expandUrl('{urlPath:-1}', context).url).toBe('detail');
+    expect(expandUrl('{urlPath:*}', context).url).toBe('v1/api/list/detail');
+    expect(expandUrl('{urlQuery:id}', context).url).toBe('100');
+    expect(expandUrl('{urlQuery:missing|fallback}', context).url).toBe('fallback');
+    expect(expandUrl('{urlScheme}://{urlHost}', context).url).toBe(
+      'https://example.test',
+    );
+  });
+
+  test('{json:...} forces POST and keeps nested braces', () => {
+    const result = expandUrl('https://example.test/api{json:{"a":{"b":1}}}', {
+      baseUrl: 'https://example.test/api',
+    });
+    expect(result.url).toBe('https://example.test/api');
+    expect(result.method).toBe('POST');
+    expect(result.body).toBe('{"a":{"b":1}}');
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  test('unknown placeholder is reported, not silently dropped', () => {
+    const result = expandUrl('https://example.test/{unknown:}', {
+      baseUrl: 'https://example.test/',
+    });
+    expect(result.url).toBe('https://example.test/');
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'UNKNOWN_PLACEHOLDER',
+        fieldPath: 'url.unknown',
+      }),
+    ]);
+  });
+});
+
+describe('selector semantics', () => {
+  test('function chain uses dot and rejects unconfirmed comma syntax', () => {
+    expect(parseFunctionChain('text')).toEqual(['text']);
+    expect(parseFunctionChain('decodeBase64.reversed')).toEqual([
+      'decodeBase64',
+      'reversed',
+    ]);
+    expect(parseFunctionChain('replace("a", with: "b")')).toEqual([
+      'replace("a", with: "b")',
+    ]);
+    expect(() => parseFunctionChain('text,html')).toThrow(
+      'comma-separated function chains',
+    );
+  });
+
+  test('regex replacement, source fallback and arithmetic', () => {
+    expect(
+      applyRegex('4.5 / 5', {
+        selector: 'span.rating',
+        regex: '([0-9.]+)',
+        replacement: '$1',
+      }),
+    ).toBe('4.5');
+    expect(
+      applyRegex('abc', {
+        selector: 'span.rating',
+        regex: '(x)',
+        replacement: '$1',
+      }),
+    ).toBe('');
+    expect(
+      applyRegex('abc', {
+        selector: 'span.rating',
+        regex: '(x)',
+        replacement: '|{source:}',
+      }),
+    ).toBe('abc');
+    expect(
+      applyRegex('4.5', {
+        selector: 'span.rating',
+        regex: '([0-9.]+)',
+        replacement: '$1 * 2',
+      }),
+    ).toBe('9');
+  });
+
+  test('restricted JSONPath accepts paths but rejects filters and descent', () => {
+    const data = { data: { titles: ['一', '二'] } };
+    expect(queryJsonPath(data, '$.data.titles[*]')).toEqual(['一', '二']);
+    expect(queryJsonPath(data, '$.data.titles[1]')).toEqual(['二']);
+    expect(validateJsonPath('$..titles')).not.toBeNull();
+    expect(validateJsonPath('$[?(@.id)]')).not.toBeNull();
+  });
+
+  test('relative url is resolved against the page url', () => {
+    expect(resolveUrl('../img/a-1-large.jpg', 'https://example.test/list/1')).toBe(
+      'https://example.test/img/a-1-large.jpg',
+    );
+    expect(resolveUrl('/img/a-2-large.jpg', 'https://example.test/list/1')).toBe(
+      'https://example.test/img/a-2-large.jpg',
+    );
+  });
+});

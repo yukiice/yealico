@@ -1,0 +1,15 @@
+{
+  "name": "Synthetic JSON",
+  "domain": "example.test",
+  "indexUrl": "https://example.test/api/list?page={page:1}",
+  "detailUrl": "https://example.test/comic/{idCode:}.html",
+  "indexRule": {
+    "item": {
+      "selector": "$.data.titles[*]"
+    },
+    "title": {
+      "selector": "this",
+      "function": "text"
+    }
+  }
+}

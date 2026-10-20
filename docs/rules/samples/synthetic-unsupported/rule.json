@@ -1,0 +1,38 @@
+{
+  "name": "Synthetic Unsupported",
+  "domain": "example.test",
+  "indexUrl": "https://example.test/list/{page:1}",
+  "detailUrl": "https://example.test/comic/{idCode:}.html",
+  "searchUrl": "https://example.test/search?q={keyword:}&x={unknown:}",
+  "flags": {
+    "jsNeededDetail": true,
+    "loginRequired": true
+  },
+  "indexRule": {
+    "item": {
+      "selector": "li.item"
+    },
+    "idCode": {
+      "selector": "a",
+      "function": "attr",
+      "param": "href"
+    },
+    "title": {
+      "selector": "a",
+      "function": "mysteryFunction"
+    }
+  },
+  "detailRule": {
+    "pictureRule": {
+      "item": {
+        "selector": "div.page"
+      },
+      "url": {
+        "selector": "img",
+        "function": "attr",
+        "param": "src",
+        "unknownOption": true
+      }
+    }
+  }
+}

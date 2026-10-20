@@ -1,0 +1,46 @@
+{
+  "capabilities": {
+    "static": false,
+    "webview": true,
+    "login": true,
+    "consent": false,
+    "post": false,
+    "charset": "utf-8",
+    "gbkUrlEncoding": false,
+    "ignoreDetail": false,
+    "repeatedThumbnail": false,
+    "scroll": false
+  },
+  "unsupported": [
+    {
+      "fieldPath": "flags.jsNeededDetail",
+      "code": "NEEDS_WEBVIEW",
+      "detail": "detail page requires WebView"
+    },
+    {
+      "fieldPath": "flags.loginRequired",
+      "code": "NEEDS_LOGIN",
+      "detail": "site requires login"
+    },
+    {
+      "fieldPath": "indexRule.title.function",
+      "code": "UNSUPPORTED_FUNCTION",
+      "detail": "mysteryFunction"
+    },
+    {
+      "fieldPath": "detailRule.pictureRule.url.unknownOption",
+      "code": "UNKNOWN_FIELD",
+      "detail": "unknownOption"
+    },
+    {
+      "fieldPath": "searchUrl",
+      "code": "UNSUPPORTED_FEATURE",
+      "detail": "search is not implemented in v1"
+    },
+    {
+      "fieldPath": "searchUrl.unknown",
+      "code": "UNKNOWN_PLACEHOLDER",
+      "detail": "{unknown:}"
+    }
+  ]
+}
