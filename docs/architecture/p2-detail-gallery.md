@@ -2,7 +2,7 @@
 
 - 记录日期：2026-10-20
 - 范围：List 页面选择、DetailRule、GalleryRule、二级页、`totalImages` 推导、翻页 URL 生成与加载编排。
-- 状态：**Node/Jest、Android RN fetch 与原生 WebView 均已跑通**；Android 同步自检 13/13，阿巴基猫 List/Detail 网络探针 6/6，WebView 本地 JS 探针 2/2；UI、登录/Cookie 仍未接。
+- 状态：**Node/Jest、Android RN fetch 与原生 WebView 均已跑通**；Android 同步自检 13/13，阿巴基猫 List/Detail 6/6，WebView 本地 JS 2/2，漫画柜在线 Detail/Gallery 5/5；UI、登录/Cookie 仍未接。
 
 ## 1. 已实现
 
@@ -173,6 +173,13 @@ Android 侧另有原生 WebView renderer：
   - 等待 marker 后取 outerHTML；
   - 漫画柜形态 `chapterRule` 得到 `id=456`，章节 URL 从 `#p={page:1}` 展开为 `#p=1`。
 - 证据：`artifacts/p2-webview.png`。
+- 漫画柜在线探针 **5/5** 通过：
+  - 详情页 `ONE PIECE航海王`，650 章，首章 `第745回 鸟笼`；
+  - 章节 URL `#p={page:1}` 保留；
+  - 第一页图库取到 1 张图片；
+  - 当前站点图片容器已从旧规则的 `#manga>img` 改为 `#mangaBox img.mangaFile`，探针使用兼容 selector；
+  - `totalPages` 标记当前页面缺失，按未知处理，不伪造页数。
+- 证据：`artifacts/p2-manhuagui-online.png`。
 
 ### 候选真实规则可用性（2026-10-21）
 
@@ -180,7 +187,7 @@ Android 侧另有原生 WebView renderer：
 
 | 站点 | 章节/详情 | 图库 | 主要缺口 | 结论 |
 | --- | --- | --- | --- | --- |
-| 漫画柜 1.7 | `chapterRule` 完整 | `totalPages` + `image`，无 `item` | 直接 image 集合语义和 WebView renderer 已补；在线页面未验收 | 图库可离线验证；详情可用 WebView，待在线验收 |
+| 漫画柜 1.7 | `chapterRule` 完整 | `totalPages` + `image`，无 `item` | 当前站点 selector 已改版；探针用 `#mangaBox img.mangaFile, #manga>img` 兼容 | 详情/Gallery 在线 5/5；原规则需迁移 |
 | 拷貝漫畫 2.15 | `chapterRule` 有 item/idCode/title，但 **无 url** | `item` + `image`，使用 class 属性转换 | 章节 URL 无法生成；图库规则依赖站点 class 结构 | 只适合离线结构测试 |
 | M-ngabz 2.1 | `chapterRule` + `secondLevelPageUrl` | `item` + `image`，但无 `totalPages` | 图库分页只能按单页验证；站点不适合作为公开验收样本 | 可做合成二级页测试 |
 | 禁漫 2.26 | `chapterRule` 完整 | `totalPages` + `item` + `image` 完整 | 成人站点，不做未授权在线抓取 | 仅合成页验证 |
@@ -203,10 +210,11 @@ Android 侧另有原生 WebView renderer：
 | `photoAlbumLink` 在详情页直接跑图片规则 | 返回 `SECOND_LEVEL_REQUIRED`，由 `loadDetail` 抓二级页 |
 | `pictureRule.link` 被当普通图片选择器 | 返回 `pictureLinks`，由 `loadDetail` 逐页执行 |
 | `totalImages` + `{page:}` 被当普通 URL | 按 1..N 展开，缺总数时告警 |
+| 漫画柜章节图片容器改版 | 探针兼容 `#mangaBox img.mangaFile`，保留原 `#manga>img` |
 
 ## 4. 仍未实现
 
-- Android 上只验证了阿巴基猫公开 List/Detail；禁漫等真实 Detail/Gallery 未在 Android 执行。
+- Android 上验证了阿巴基猫公开 List/Detail、漫画柜在线 Detail/Gallery；禁漫等成人站点未在 Android 执行。
 - UI：站点列表、页面选择、详情、阅读器、翻页。
 - WebView 的产品化导航/阅读器、登录、consent、Cookie、图片请求头；WebView renderer 已有。
 - `videoRule`、`commentRule`、`seriesRule`、`searchUrl`、`displayMode=tag`。
@@ -225,7 +233,7 @@ Android 侧另有原生 WebView renderer：
 - `__tests__/real-rules.test.ts`：禁漫页面选择、拷貝漫畫 `photoAlbumLink`、M-ngabz 无 selector 的 `secondLevelPageUrl`。
 - `__tests__/gallery-direct.test.ts`：无 `item` 的直接 image 集合，以及漫画柜 1.7 规则的离线页。
 - `__tests__/webview.test.ts`：WebView renderer 的 waitForSelector、`loadDetail`/`loadGalleryPages` 的 NEEDS_WEBVIEW 放行、漫画柜章节规则。
-- 当前 Jest：**14 个 suite、59 个用例**；`npm run typecheck`、`npm run lint` 通过。
+- 当前 Jest：**14 个 suite、60 个用例**；`npm run typecheck`、`npm run lint` 通过。
 - `__tests__/rule-fetcher.test.ts`：fetch 转换、Headers、超时。
 - `__tests__/network-selftest.test.ts`：真实阿巴基猫规则 + mock fetcher 的 `loadListPages`。
 

@@ -6,6 +6,7 @@ import android.os.Looper
 import android.view.ViewGroup
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.CookieManager
 import android.widget.FrameLayout
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -28,6 +29,10 @@ class WebViewRendererModule(
   private val handler = Handler(Looper.getMainLooper())
   private var active = false
   private var activeWebView: WebView? = null
+  private val browserUserAgent =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
+      "AppleWebKit/537.36 (KHTML, like Gecko) " +
+      "Chrome/126.0.0.0 Safari/537.36"
 
   override fun getName(): String = "WebViewRenderer"
 
@@ -39,7 +44,10 @@ class WebViewRendererModule(
     promise: Promise,
   ) {
     start(promise, waitForSelector, timeoutMs) { webView ->
-      webView.loadUrl(url)
+      webView.loadUrl(
+        url,
+        mapOf("Accept-Language" to "zh-CN,zh;q=0.9,en;q=0.8"),
+      )
     }
   }
 
@@ -86,6 +94,9 @@ class WebViewRendererModule(
         settings.databaseEnabled = true
         settings.loadsImagesAutomatically = false
         settings.blockNetworkImage = true
+        settings.userAgentString = browserUserAgent
+        CookieManager.getInstance().setAcceptCookie(true)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
         webViewClient = object : WebViewClient() {
           override fun onPageFinished(view: WebView, finishedUrl: String) {
             if (pollingStarted) {
@@ -100,6 +111,21 @@ class WebViewRendererModule(
               container,
               0,
             )
+          }
+
+          override fun onReceivedHttpError(
+            view: WebView,
+            request: android.webkit.WebResourceRequest,
+            errorResponse: android.webkit.WebResourceResponse,
+          ) {
+            if (request.isForMainFrame) {
+              fail(
+                promise,
+                container,
+                "http_error",
+                "HTTP ${errorResponse.statusCode} for ${request.url}",
+              )
+            }
           }
         }
       }
@@ -131,7 +157,25 @@ class WebViewRendererModule(
       return
     }
     if (attempt * 100L > timeoutMs) {
-      fail(promise, container, "timeout", "WebView render timed out after ${timeoutMs}ms")
+      val infoScript =
+        "document.title + ' | ' + location.href + ' | manga=' + " +
+          "(document.querySelector('#manga') ? 'yes' : 'no') + ' | imgs=' + " +
+          "document.querySelectorAll('img').length + ' | ' + " +
+          "'wait=' + " + quoteJs(waitForSelector ?: "") + " + ' | ' + " +
+          "Array.prototype.slice.call(document.images, 0, 4).map(function (img) {" +
+          "return (img.src || '') + '|' + (img.className || '') + '|' + " +
+          "(img.parentElement ? (img.parentElement.id || '') : '') + '|' + " +
+          "(img.parentElement ? (img.parentElement.className || '') : '');" +
+          "}).join(' ; ')"
+      webView.evaluateJavascript(infoScript) { raw ->
+        val info = decodeJavascriptString(raw)
+        fail(
+          promise,
+          container,
+          "timeout",
+          "WebView render timed out after ${timeoutMs}ms: $info",
+        )
+      }
       return
     }
 

@@ -16,6 +16,7 @@
 | `synthetic04` | 合成：不支持能力 | Detail | `jsNeededDetail`、未知函数 | 是 | `samples/synthetic-unsupported/expected-plan.json` | API36 PASS（7/7） | 不适用 | 已支持 | 仅验证诊断，不执行页面 |
 | `real-aba-2.4` | 阿巴基猫（作者自建 WordPress） | List/Detail | 静态列表、text、pictureRule | 是 | SQLite 提取 + `List: recently` / `buildPagePlan` / `loadDetail` 测试 | API36 网络探针 PASS（列表 70 条，详情 4 图） | 真实页 118 条（117 链接 + 1 空段） | 部分支持 | search/waterfall 未实现；见 [SQLite](yealico-macos-sqlite.md) |
 | `real-jm-2.26` | 禁漫天堂（作者规则） | List/Detail/Gallery | CSS、chapterRule、tagRule、gallery、pages | 是 | SQLite 提取；RoutePlan `static=true`；29 页可选；detail 2 章节 / gallery 3 图 3 页（合成页） | 待跑 | 未抓取（成人站点，不做未授权抓取） | 部分支持 | search/series/displayMode tag 未实现 |
+| `real-manhuagui-1.7` | 漫画柜（公开页） | Detail/Gallery | WebView、chapterRule、直接 image 集合 | 是 | 真实规则 + 合成/在线探针 | API36 在线 PASS（650 章 / 首图） | 在线详情/首图已取 | 部分支持 | 当前图片 selector 已改版；探针兼容 `#mangaBox img.mangaFile`；totalPages 标记缺失 |
 | `real-pending-a` | 真实样本 A | 待补 | 待补 | 待补 | 待补 | 待补 | 待补 | 待验证 | 需要用户提供规则 JSON 与详情 URL |
 | `real-pending-b` | 真实样本 B | 待补 | 待补 | 待补 | 待补 | 待补 | 待补 | 待验证 | 同上 |
 | `real-pending-c` | 真实样本 C | 待补 | 待补 | 待补 | 待补 | 待补 | 待补 | 待验证 | 同上 |

@@ -336,6 +336,15 @@ function scanRule(
   }
   for (const [key, child] of Object.entries(value)) {
     const childPath = `${fieldPath}.${key}`;
+    if (
+      child &&
+      typeof child === 'object' &&
+      !Array.isArray(child) &&
+      Object.keys(child).length === 0
+    ) {
+      // 真实规则常用空对象表示“该字段不存在”，不是非法 selector。
+      continue;
+    }
     if (root && key === 'name' && typeof child === 'string') {
       continue;
     }

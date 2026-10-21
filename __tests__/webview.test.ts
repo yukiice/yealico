@@ -6,6 +6,7 @@ import {
 import type { RuleDocument } from '../src/engine';
 import { createWebViewRuleFetcher } from '../src/platform/webviewFetcher';
 import type { WebViewRendererLike } from '../src/platform/webviewFetcher';
+import { runManhuaguiProbe } from '../src/platform/manhuaguiProbe';
 import { runWebViewSelftest } from '../src/platform/webviewSelftest';
 
 function fakeRenderer(
@@ -128,5 +129,39 @@ test('WebView selftest applies the 漫画柜 chapter rule to rendered HTML', asy
 
   const results = await runWebViewSelftest(renderer);
   expect(results).toHaveLength(2);
+  expect(results.every(result => result.ok)).toBe(true);
+});
+
+test('漫画柜 probe follows detail chapters and first gallery page', async () => {
+  const renderer: WebViewRendererLike = {
+    async render(url) {
+      if (url.endsWith('/comic/1128/')) {
+        return {
+          url,
+          body: `
+            <h1>Public Comic</h1>
+            <div class="chapter-list">
+              <ul>
+                <li><a href="/comic/1128/9001.html" title="第 1 话">第 1 话</a></li>
+              </ul>
+            </div>
+          `,
+        };
+      }
+      return {
+        url,
+        body: `
+          <span class="manga-page">第 1 页/3P</span>
+          <div id="manga"><img src="/img/page-1.jpg"></div>
+        `,
+      };
+    },
+    async renderHtml(_html, baseUrl) {
+      return { url: baseUrl, body: '' };
+    },
+  };
+
+  const results = await runManhuaguiProbe(renderer);
+  expect(results).toHaveLength(5);
   expect(results.every(result => result.ok)).toBe(true);
 });

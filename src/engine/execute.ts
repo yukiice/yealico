@@ -110,6 +110,14 @@ function evaluateFields(
     if (skip.has(field)) {
       continue;
     }
+    if (
+      rawSpec &&
+      typeof rawSpec === 'object' &&
+      !Array.isArray(rawSpec) &&
+      Object.keys(rawSpec).length === 0
+    ) {
+      continue;
+    }
     const spec = normalizeSelector(rawSpec);
     if (!spec) {
       diagnostics.push({
@@ -409,7 +417,10 @@ export function executeGallery(
       );
       diagnostics.push(...result.diagnostics);
       const parsedNumber = Number(result.value);
-      totalPages = Number.isFinite(parsedNumber) ? parsedNumber : undefined;
+      totalPages =
+        Number.isFinite(parsedNumber) && parsedNumber > 0
+          ? parsedNumber
+          : undefined;
     }
   }
 

@@ -109,7 +109,7 @@ Node 侧结果（2026-10-20）：
 
 - lint：0 error / 0 warning。
 - typecheck：通过（应用配置 + 测试配置）。
-- Jest：14 个 suite、59 个用例全部通过（含 WebView renderer）。
+- Jest：14 个 suite、60 个用例全部通过（含 WebView renderer）。
 - 覆盖：golden fixture、分页/URL 占位符、函数链、regex、受限 JSONPath、QR、真实 `List: recently`、Detail/Gallery、chapter URL 模板、attr fallback、分页编排与去重、pages、二级页、totalImages、直接 image 集合、WebView、fetch 超时与网络探针。
 
 真实规则验证（2026-10-20）：
@@ -146,6 +146,8 @@ P2 Android 验证（2026-10-21，API 36 / arm64-v8a）：
 - 证据：`artifacts/p2-aba-detail.png`；只访问公开博客，未访问成人站点。
 - 原生 WebView 探针：`WebView 探针通过 (2)`；本地 JS 页面生成章节列表，漫画柜形态 `chapterRule` 解析并展开章节 URL。
 - 证据：`artifacts/p2-webview.png`；未访问漫画柜在线页面。
+- 漫画柜在线探针：`漫画柜探针通过 (5)`；详情页 650 章，首章 `第745回 鸟笼`，第一页图库 1 图；当前图库 selector 需迁移为 `#mangaBox img.mangaFile`。
+- 证据：`artifacts/p2-manhuagui-online.png`；只取 DOM/URL，不下载图片。
 
 ## 5. 待验证项（不得当作已通过）
 
@@ -163,7 +165,7 @@ P2 Android 验证（2026-10-21，API 36 / arm64-v8a）：
 | Yealico 加密导出 JSON | 已识别 | 3840 bytes 高熵；报 `UNSUPPORTED_ENCRYPTED_EXPORT`，见 [export-format](../rules/yealico-export-format.md) |
 | 1 MB HTML 解析耗时/阻塞 | 待跑 | 记录 P95 与掉帧 |
 | 真实规则兼容 | 部分完成 | 6 条已提取；禁漫 RoutePlan 无 invalid/unknown；阿巴基 118 条 |
-| 真实规则 Android 执行 | 部分完成 | 阿巴基猫公开 List/Detail 网络探针通过（详情 4 图）；禁漫 Detail/Gallery 未在 Android 跑 |
+| 真实规则 Android 执行 | 部分完成 | 阿巴基猫公开 List/Detail（详情 4 图）与漫画柜在线 Detail/Gallery（650 章/首图）通过；禁漫 Detail/Gallery 未在 Android 跑 |
 | pages / 二级图片 / WebView / 网络编排 | 引擎 + Android List/Detail/WebView 已通 | Node/Jest、Android fetch/WebView 通过；阅读器 UI 待接；漫画柜在线未验收；search/series 未实现 |
 
 ## 6. 下一步

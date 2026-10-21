@@ -21,6 +21,7 @@ import type { SelftestResult } from './src/engine/selftest';
 import { createFetchRuleFetcher } from './src/platform/ruleFetcher';
 import { runNetworkSelftest } from './src/platform/networkSelftest';
 import { createNativeWebViewRenderer } from './src/platform/nativeWebView';
+import { runManhuaguiProbe } from './src/platform/manhuaguiProbe';
 import { runWebViewSelftest } from './src/platform/webviewSelftest';
 
 function App(): React.JSX.Element {
@@ -34,9 +35,12 @@ function App(): React.JSX.Element {
   const [networkRunning, setNetworkRunning] = useState(false);
   const [webViewResults, setWebViewResults] = useState<SelftestResult[]>([]);
   const [webViewRunning, setWebViewRunning] = useState(false);
+  const [manhuaguiResults, setManhuaguiResults] = useState<SelftestResult[]>([]);
+  const [manhuaguiRunning, setManhuaguiRunning] = useState(false);
   const failed = results.filter(result => !result.ok).length;
   const networkFailed = networkResults.filter(result => !result.ok).length;
   const webViewFailed = webViewResults.filter(result => !result.ok).length;
+  const manhuaguiFailed = manhuaguiResults.filter(result => !result.ok).length;
 
   const runNetwork = async (): Promise<void> => {
     if (networkRunning) {
@@ -80,6 +84,28 @@ function App(): React.JSX.Element {
     }
   };
 
+  const runManhuagui = async (): Promise<void> => {
+    if (manhuaguiRunning) {
+      return;
+    }
+    setManhuaguiRunning(true);
+    try {
+      setManhuaguiResults(
+        await runManhuaguiProbe(createNativeWebViewRenderer()),
+      );
+    } catch (error) {
+      setManhuaguiResults([
+        {
+          name: 'manhuagui: unexpected error',
+          ok: false,
+          detail: error instanceof Error ? error.message : String(error),
+        },
+      ]);
+    } finally {
+      setManhuaguiRunning(false);
+    }
+  };
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" />
@@ -112,6 +138,15 @@ function App(): React.JSX.Element {
           {webViewRunning ? 'WebView 探针运行中…' : '运行 WebView 规则探针'}
         </Text>
       </Pressable>
+      <Pressable
+        testID="manhuagui-probe"
+        onPress={runManhuagui}
+        disabled={manhuaguiRunning}
+        style={[styles.button, manhuaguiRunning && styles.buttonDisabled]}>
+        <Text style={styles.buttonText}>
+          {manhuaguiRunning ? '漫画柜在线探针运行中…' : '运行漫画柜在线探针'}
+        </Text>
+      </Pressable>
       {networkResults.length > 0 && (
         <Text
           style={[
@@ -134,7 +169,26 @@ function App(): React.JSX.Element {
             : `WebView 探针失败 ${webViewFailed}/${webViewResults.length}`}
         </Text>
       )}
+      {manhuaguiResults.length > 0 && (
+        <Text
+          style={[
+            styles.networkSummary,
+            manhuaguiFailed === 0 ? styles.pass : styles.fail,
+          ]}>
+          {manhuaguiFailed === 0
+            ? `漫画柜探针通过 (${manhuaguiResults.length})`
+            : `漫画柜探针失败 ${manhuaguiFailed}/${manhuaguiResults.length}`}
+        </Text>
+      )}
       <ScrollView contentContainerStyle={styles.list}>
+        {manhuaguiResults.map(result => (
+          <View key={result.name} style={styles.row}>
+            <Text style={[styles.name, result.ok ? styles.pass : styles.fail]}>
+              {result.ok ? 'PASS' : 'FAIL'} {result.name}
+            </Text>
+            <Text style={styles.detail}>{result.detail}</Text>
+          </View>
+        ))}
         {webViewResults.map(result => (
           <View key={result.name} style={styles.row}>
             <Text style={[styles.name, result.ok ? styles.pass : styles.fail]}>

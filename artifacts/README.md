@@ -51,6 +51,15 @@ Android 原生 WebView 验证证据（2026-10-21）：
 - 漫画柜形态的 `chapterRule` 解析出章节 id `456`，并把 `#p={page:1}` 展开为 `#p=1`
 - 未访问漫画柜在线页面
 
+## `p2-manhuagui-online.png`
+
+漫画柜公开页在线验收（2026-10-21）：
+
+- 详情页 `ONE PIECE航海王`，章节列表 650 条，首章 `第745回 鸟笼`
+- 章节 URL 模板 `#p={page:1}` 正确保留
+- 图库首图抓取成功，探针 5/5；当前站点图库 selector 已改版（`#mangaBox img.mangaFile`）
+- 只取 DOM/URL，不下载图片、不批量翻页
+
 ## 生成的真实规则
 
 `src/engine/real-rules.generated.ts` 由 `npm run rules:sync` 生成，只包含阿巴基猫公开站点规则，供 Android 网络探针打包使用；生成文件同样只在私有仓库/本地测试使用。
