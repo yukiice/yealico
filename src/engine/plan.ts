@@ -185,7 +185,15 @@ function scanFlags(
     }
     if (lower.startsWith('jsneeded')) {
       capabilities.webview = true;
-      push(diagnostics, `flags.${key}`, 'NEEDS_WEBVIEW', `${key} requires WebView`);
+      // WebView 渲染器已经实现，renderer 切换按 code 判断而不是 severity，
+      // 所以这里只声明能力，不再把“需要 WebView”当成阻断错误。
+      push(
+        diagnostics,
+        `flags.${key}`,
+        'NEEDS_WEBVIEW',
+        `${key} requires WebView`,
+        'warning',
+      );
       continue;
     }
     if (lower === 'loginrequired') {
@@ -479,12 +487,15 @@ export function buildRoutePlan(rule: RuleDocument): RoutePlan {
   scanUrl(rule.searchUrl, 'searchUrl', diagnostics);
   scanUrl(rule.loginUrl, 'loginUrl', diagnostics);
 
+  // search / series 是 v1 未实现的可选能力，不影响列表、详情、图库主链路。
+  // 标成 warning 后不会进入 UI 的错误横幅，避免把"能用的站点"显示成失败。
   if (rule.searchUrl) {
     push(
       diagnostics,
       'searchUrl',
       'UNSUPPORTED_FEATURE',
       'search is not implemented in v1',
+      'warning',
     );
   }
   if (rule.seriesRule) {
@@ -493,6 +504,7 @@ export function buildRoutePlan(rule: RuleDocument): RoutePlan {
       'seriesRule',
       'UNSUPPORTED_SERIES',
       'series pages are not implemented in v1',
+      'warning',
     );
   }
   if (capabilities.ignoreDetail && !rule.galleryRule && !rule.galleryUrl) {

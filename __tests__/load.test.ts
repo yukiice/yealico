@@ -127,3 +127,25 @@ test('loadListPages reports HTTP errors and does not silently continue', async (
     expect.objectContaining({ code: 'NETWORK_ERROR', fieldPath: 'request' }),
   ]);
 });
+
+test('network failures keep the target URL in the diagnostic', async () => {
+  const fetcher: RuleFetcher = {
+    fetch: async () => {
+      throw new Error('Network request failed');
+    },
+  };
+  const result = await loadListPages(
+    listRule,
+    buildRoutePlan(listRule),
+    fetcher,
+    { baseUrl: 'https://example.test/list/1', page: 1, domain: 'example.test' },
+    { maxPages: 1 },
+  );
+
+  expect(result.diagnostics).toEqual([
+    expect.objectContaining({
+      code: 'NETWORK_ERROR',
+      detail: expect.stringContaining('https://example.test/list/1'),
+    }),
+  ]);
+});

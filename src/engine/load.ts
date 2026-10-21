@@ -130,7 +130,9 @@ async function fetchPage(
         {
           fieldPath: 'request',
           code: 'NETWORK_ERROR',
-          detail: error instanceof Error ? error.message : String(error),
+          // 带上目标 URL：适配器抛出的原文只有 "Network request failed"，
+          // 无法判断是哪个主机不可达。展示层会统一脱敏。
+          detail: `${error instanceof Error ? error.message : String(error)}: ${request.url}`,
           severity: 'error',
         },
       ],

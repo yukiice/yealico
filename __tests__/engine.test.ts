@@ -111,6 +111,45 @@ describe('P1 golden fixtures', () => {
       expected.unsupported.map(item => `${item.code}:${item.fieldPath}`).sort(),
     );
   });
+
+  test('search/series are warnings, not blocking errors', () => {
+    const rule = {
+      name: 'optional-capabilities',
+      domain: 'example.test',
+      indexUrl: 'https://{domain:}/list/{page:}',
+      searchUrl: 'https://{domain:}/s/{keyword:}',
+      seriesRule: { title: { selector: 'h2' } },
+      indexRule: { item: { selector: 'li' } },
+    } as RuleDocument;
+
+    const plan = buildRoutePlan(rule);
+    const optional = plan.unsupported.filter(
+      item =>
+        item.code === 'UNSUPPORTED_FEATURE' ||
+        item.code === 'UNSUPPORTED_SERIES',
+    );
+
+    expect(optional.map(item => item.fieldPath).sort()).toEqual([
+      'searchUrl',
+      'seriesRule',
+    ]);
+    expect(optional.every(item => item.severity === 'warning')).toBe(true);
+  });
+
+  test('jsNeeded flags are warnings because the webview renderer exists', () => {
+    const rule = JSON.parse(
+      fixture('synthetic-unsupported', 'rule.json'),
+    ) as RuleDocument;
+
+    const plan = buildRoutePlan(rule);
+    const webview = plan.unsupported.filter(
+      item => item.code === 'NEEDS_WEBVIEW',
+    );
+
+    expect(webview.length).toBeGreaterThan(0);
+    expect(webview.every(item => item.severity === 'warning')).toBe(true);
+    expect(plan.capabilities.webview).toBe(true);
+  });
 });
 
 describe('URL placeholders', () => {

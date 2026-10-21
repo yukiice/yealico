@@ -113,3 +113,15 @@ Yealico `v2:` 如果仍然无法离线解码，必须返回明确错误并引导
 2. 相机扫码 + 相册导入；
 3. Yealico v2 格式/密钥取证；
 4. QR 端到端验收。
+
+## 6. release 构建的明文 HTTP 限制
+
+- Android release 变体 `usesCleartextTraffic=false`（`AndroidManifest.xml` 的占位符由 RN Gradle 插件按变体填充），因此 **release 包只能导入 `https://` 规则 URL**。
+- `http://` 规则 URL 在 release 包中会报：
+
+  ```text
+  NETWORK_ERROR: Network request failed: <url> (http:// 在 Android release 构建默认被禁止，请改用 https://)
+  ```
+
+- debug 变体允许明文，P3 验收使用的 `http://10.0.2.2:8000` 属于调试链路，不代表 release 行为。
+- 若将来需要局域网明文规则源，应通过 `network_security_config` 精确放行特定地址，不要全局打开 cleartext。

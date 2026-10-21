@@ -202,12 +202,15 @@ export async function importRuleFromUrl(
       timeoutMs: 15_000,
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // Android release 构建默认禁止明文 HTTP；不提示的话只会看到
+    // “Network request failed”，无法区分域名不可达还是策略拦截。
+    const hint = /^http:\/\//i.test(url)
+      ? ' (http:// 在 Android release 构建默认被禁止，请改用 https://)'
+      : '';
     return {
       diagnostics: [
-        errorDiagnostic(
-          'NETWORK_ERROR',
-          error instanceof Error ? error.message : String(error),
-        ),
+        errorDiagnostic('NETWORK_ERROR', `${message}: ${url}${hint}`),
       ],
     };
   }

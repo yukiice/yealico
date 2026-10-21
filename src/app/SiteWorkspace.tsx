@@ -19,7 +19,7 @@ import { DebugScreen } from './DebugScreen';
 import { DebugSession } from './debugReport';
 import { DetailScreen } from './DetailScreen';
 import { errorText } from './diagnostics';
-import { contentState } from './presentation';
+import { contentState, displayIdCode } from './presentation';
 import type { ReadingProgressRepository } from './readingProgress';
 import { createRuleFetcherForPlan } from './ruleFetcherForPlan';
 
@@ -219,7 +219,9 @@ export function SiteWorkspace({
                   style={styles.item}>
                   <Text style={styles.itemTitle}>{item.title ?? '(无标题)'}</Text>
                   {item.idCode ? (
-                    <Text style={styles.itemMeta}>{item.idCode}</Text>
+                    <Text style={styles.itemMeta}>
+                      {displayIdCode(item.idCode)}
+                    </Text>
                   ) : null}
                 </Pressable>
               ))}

@@ -130,3 +130,24 @@ test('rejects invalid JSON and HTTP errors', async () => {
     expect.arrayContaining([expect.objectContaining({ code: 'NETWORK_ERROR' })]),
   );
 });
+
+test('http rule URL failures explain the Android cleartext policy', async () => {
+  const failing: RuleFetcher = {
+    fetch: async () => {
+      throw new Error('Network request failed');
+    },
+  };
+
+  const result = await importRuleFromUrl('http://10.0.2.2:8000/aba.json', failing);
+
+  expect(result.site).toBeUndefined();
+  expect(result.diagnostics[0]).toEqual(
+    expect.objectContaining({
+      code: 'NETWORK_ERROR',
+      detail: expect.stringContaining('https://'),
+    }),
+  );
+  expect(result.diagnostics[0].detail).toContain(
+    'http://10.0.2.2:8000/aba.json',
+  );
+});
