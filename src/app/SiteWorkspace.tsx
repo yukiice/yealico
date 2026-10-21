@@ -19,6 +19,7 @@ import { DebugScreen } from './DebugScreen';
 import { DebugSession } from './debugReport';
 import { DetailScreen } from './DetailScreen';
 import { errorText } from './diagnostics';
+import { contentState } from './presentation';
 import type { ReadingProgressRepository } from './readingProgress';
 import { createRuleFetcherForPlan } from './ruleFetcherForPlan';
 
@@ -71,6 +72,7 @@ export function SiteWorkspace({
     [built.plan],
   );
   const lastRead = progress.latestForSite(site.id);
+  const listState = contentState(items.length, error);
 
   useEffect(() => {
     let cancelled = false;
@@ -202,24 +204,28 @@ export function SiteWorkspace({
 
       {loading ? (
         <Text style={styles.info}>正在加载列表…</Text>
-      ) : error ? (
-        <Text style={styles.error}>{error}</Text>
-      ) : items.length === 0 ? (
-        <Text style={styles.info}>列表为空</Text>
       ) : (
-        <ScrollView contentContainerStyle={styles.list}>
-          {items.map((item, index) => (
-            <Pressable
-              key={item.idCode ?? `${index}`}
-              onPress={() => setSelectedItem(item)}
-              style={styles.item}>
-              <Text style={styles.itemTitle}>{item.title ?? '(无标题)'}</Text>
-              {item.idCode ? (
-                <Text style={styles.itemMeta}>{item.idCode}</Text>
-              ) : null}
-            </Pressable>
-          ))}
-        </ScrollView>
+        <>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {listState === 'empty' ? (
+            <Text style={styles.info}>列表为空</Text>
+          ) : null}
+          {listState === 'content' ? (
+            <ScrollView contentContainerStyle={styles.list}>
+              {items.map((item, index) => (
+                <Pressable
+                  key={item.idCode ?? `${index}`}
+                  onPress={() => setSelectedItem(item)}
+                  style={styles.item}>
+                  <Text style={styles.itemTitle}>{item.title ?? '(无标题)'}</Text>
+                  {item.idCode ? (
+                    <Text style={styles.itemMeta}>{item.idCode}</Text>
+                  ) : null}
+                </Pressable>
+              ))}
+            </ScrollView>
+          ) : null}
+        </>
       )}
     </View>
   );

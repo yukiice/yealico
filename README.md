@@ -88,12 +88,13 @@ docs/architecture/       阶段基线与运行时记录
 - [P2 Detail/Gallery 链路](docs/architecture/p2-detail-gallery.md)
 - [P3 章节图库阅读器](docs/architecture/p3-reader.md)
 - [P3 调试页](docs/architecture/p3-debug.md)
+- [P3 Android 验收记录](docs/architecture/p3-android-verification.md)
 
 ## 已知限制
 
 - UI：站点导入/列表/删除、页面选择、列表、详情展示、单页阅读器、阅读进度和调试页已实现；连续滚动/双页、章节连读尚未实现。
 - WebView 已能渲染并取 DOM，阅读器已接入单章节画廊；登录、consent、Cookie 共享尚未实现，图片请求只补了规则头与默认 Referer。
-- Android 验证了阿巴基猫公开 List/Detail、漫画柜在线 Detail/首图；阅读器、阅读进度和调试页目前仅 Jest 验证，未在 Android 上验收。
+- Android 验证了阿巴基猫公开 List/Detail、漫画柜在线 Detail/章节入口；导入→列表→详情→章节→阅读器→调试页已在模拟器跑通（见验收记录），阅读器图片未加载成功（漫画柜章节 selector 漂移），阅读进度缺真机证据。
 - QR 导入：JSON/URL/QR raw JSON 已有导入领域层；Yealico `v2:` 仍只识别、未解码，相机扫码 UI 未实现。二维码是必须功能，验收见 [P3 站点导入](docs/architecture/p3-site-import.md)。
 - `+` 多 JSONPath、`$root` 完整语法、数学表达式 replacement、GBK/Big5 尚未实现或验证。
 - 真实规则来自作者 `wc3818290`，只在私有仓库/本地测试使用；不要公开再分发。

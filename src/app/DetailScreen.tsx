@@ -18,6 +18,7 @@ import type {
 } from '../engine';
 import { errorText } from './diagnostics';
 import type { DebugSession } from './debugReport';
+import { contentState } from './presentation';
 import { progressKeyFor } from './readingProgress';
 import type { ReadingProgressRepository } from './readingProgress';
 import { ReaderScreen } from './ReaderScreen';
@@ -159,6 +160,7 @@ export function DetailScreen({
   const cover = detail?.fields.cover ?? item.cover;
   const pictures = detail?.pictures ?? [];
   const chapters = detail?.chapters ?? [];
+  const detailState = contentState(detail ? 1 : 0, error);
 
   return (
     <View style={styles.root}>
@@ -170,10 +172,14 @@ export function DetailScreen({
 
       {loading ? (
         <Text style={styles.info}>正在加载详情…</Text>
-      ) : error ? (
-        <Text style={styles.error}>{error}</Text>
       ) : (
-        <ScrollView contentContainerStyle={styles.content}>
+        <>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {detailState === 'empty' ? (
+            <Text style={styles.info}>详情为空</Text>
+          ) : null}
+          {detailState === 'content' ? (
+            <ScrollView contentContainerStyle={styles.content}>
           {cover ? (
             <Image source={{ uri: cover }} style={styles.cover} resizeMode="cover" />
           ) : null}
@@ -229,7 +235,9 @@ export function DetailScreen({
           {chapters.length === 0 && pictures.length === 0 ? (
             <Text style={styles.info}>详情页没有章节或图片结果</Text>
           ) : null}
-        </ScrollView>
+            </ScrollView>
+          ) : null}
+        </>
       )}
     </View>
   );

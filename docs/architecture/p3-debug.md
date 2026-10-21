@@ -2,7 +2,7 @@
 
 - 记录日期：2026-10-21
 - 范围：当前规则与能力展示、阶段记录、结果数量、脱敏诊断。
-- 状态：**Jest 覆盖已跑通；Android 真机未验收**。至此 P3 清单全部完成。
+- 状态：**Jest 覆盖已跑通，并在 Android 模拟器验收**。至此 P3 清单全部完成，验收记录见 [Android 验收记录](p3-android-verification.md)。
 
 ## 1. 为什么需要它
 
@@ -61,11 +61,11 @@ path 和 hash 一律保留——`#p=7` 这类页码正是定位问题所需的�
 - 能力摘要、阻断项只取 `severity === 'error'`；
 - 会话上限与“最新在前”、`list()` 返回副本、`clear()`。
 
-当前整体：**19 个 suite、98 个用例**；`npm run typecheck`、`npm run lint` 通过。
+当前整体：**21 个 suite、106 个用例**；`npm run typecheck`、`npm run lint` 通过。
 
 ## 5. 还没做
 
-- 调试页只在 Jest 验证，Android 上没跑过；
+- 调试页在 Android 上验证时直接暴露了两个真问题（列表被 error 横幅吞掉、阅读器报错带签名），见 [Android 验收记录](p3-android-verification.md)；
 - 没有导出/复制报告（需要 Clipboard 原生能力）；
 - 不展示每个选择器的命中数，只展示阶段级数量；
 - 不记录耗时（`loadListPages` 已有 `urls`，加时间戳是下一步）。

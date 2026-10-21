@@ -37,6 +37,35 @@ function maskParamName(rawKey: string): boolean {
 }
 
 /**
+ * 值形态识别：图床签名常是长串混合大小写的参数值，名字却叫 `m`、`e` 这类。
+ *
+ * 例如 `&m=somwbCWkrsmGioLKBdzZAw`（21 字符，大小写混合、无数字）。
+ * 纯小写/纯数字的普通参数（关键词、章节号、时间戳）不会被误伤；
+ * 代价是超长的驼峰式搜索词也会被当签名，这是有意识的取舍。
+ */
+function looksOpaque(value: string): boolean {
+  return (
+    value.length >= 20 &&
+    /^[A-Za-z0-9_-]+$/.test(value) &&
+    /[a-z]/.test(value) &&
+    /[A-Z]/.test(value)
+  );
+}
+
+function maskParam(rawKey: string, rawValue: string): boolean {
+  if (maskParamName(rawKey)) {
+    return true;
+  }
+  let value = rawValue;
+  try {
+    value = decodeURIComponent(rawValue);
+  } catch {
+    // 同上：解码失败就用原串做形态判断。
+  }
+  return looksOpaque(value);
+}
+
+/**
  * URL 脱敏：去掉 userinfo，并把敏感查询参数的值替换成 `***`。
  *
  * 只处理 query，path/hash 保持原样——页码、章节号这些正是定位问题所需的。
@@ -65,21 +94,29 @@ export function sanitizeUrl(input: string): string {
         return pair;
       }
       const rawKey = pair.slice(0, eq);
-      return maskParamName(rawKey) ? `${rawKey}=***` : pair;
+      const rawValue = pair.slice(eq + 1);
+      return maskParam(rawKey, rawValue) ? `${rawKey}=***` : pair;
     })
     .join('&');
   return `${head}?${masked}${hash}`;
 }
 
-/** 自由文本里的查询串脱敏，用于诊断详情。 */
+/**
+ * 自由文本里的查询串脱敏，用于诊断详情。
+ *
+ * 诊断文本经常是爬取来的，分隔符不一定是干净的 `&`：
+ * - HTML 转义后的 `&amp;m=...`；
+ * - 引擎把多个候选值用 `|` 拼在一起；
+ * 所以分隔符要包含 `;`，值要排除 `|` 与 `,`，否则签名会跟在值后面一起被判成非签名。
+ */
 export function sanitizeText(value: string): string {
   if (!value) {
     return '';
   }
   return value.replace(
-    /(^|[?&\s])([A-Za-z0-9_.-]+)=([^&\s]+)/g,
-    (match, prefix: string, key: string) =>
-      SENSITIVE_PARAM.test(key) ? `${prefix}${key}=***` : match,
+    /(^|[?&;\s])([A-Za-z0-9_.-]+)=([^&\s|,]+)/g,
+    (match, prefix: string, key: string, rawValue: string) =>
+      maskParam(key, rawValue) ? `${prefix}${key}=***` : match,
   );
 }
 

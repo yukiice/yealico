@@ -20,6 +20,20 @@ test('masks sensitive query params and keeps locator params', () => {
   );
 });
 
+test('masks opaque signature values even when the param name looks harmless', () => {
+  // 真机报错里出现过的图床签名：名字是 m，值是混合大小写+数字的长串。
+  expect(
+    sanitizeUrl(
+      'https://img.test/a.webp?e=1793771509&m=somwbCWkrsmGioLKBdzZAw',
+    ),
+  ).toBe('https://img.test/a.webp?e=1793771509&m=***');
+
+  // 短值、纯数字、章节号不被当成签名。
+  expect(sanitizeUrl('https://e.test/a?m=1&page=2&idCode=916672')).toBe(
+    'https://e.test/a?m=1&page=2&idCode=916672',
+  );
+});
+
 test('keeps path, hash and non-secret params untouched', () => {
   expect(sanitizeUrl('https://e.test/comic/123/456.html#p=7')).toBe(
     'https://e.test/comic/123/456.html#p=7',
