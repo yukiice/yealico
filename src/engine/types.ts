@@ -27,6 +27,7 @@ export type DiagnosticCode =
   | 'NEEDS_LOGIN'
   | 'NEEDS_CONSENT'
   | 'MISSING_FIELD'
+  | 'DUPLICATE_SITE'
   | 'EMPTY_RESULT';
 
 export type DiagnosticSeverity = 'error' | 'warning';

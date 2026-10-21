@@ -1,6 +1,7 @@
 # QR 导入格式与兼容性（P0 补充）
 
 - 记录日期：2026-10-20
+- 功能状态：**必须交付，延期**；领域导入层已完成，相机/持久化/v2 解码未完成。
 - 样本：用户提供的 `6DA1253174569835C4C45D113675AEA3.jpg`
 - 画面上标注：`禁漫天堂` / `jm18c-dfg.cc` / `2.26@wc3818290`
 - 关联：[规则语义基线](../reference/yealico-rule-model.md)、[待确认项](open-questions.md)、[兼容矩阵](compat-matrix.md)
@@ -78,6 +79,7 @@ Yealico QR Code: v2:ImJpWmDcnxYVUFVnmJTeQGK+gxDqQ54aXbjfZZYW95uwfyG8ZZieqthW0YRH
   - `yealico://import?url=...` / `?rule=...`。
 - 未知/非法载荷统一返回 `UNSUPPORTED_QR_PAYLOAD`，不静默空结果。
 - 测试：`__tests__/qr.test.ts`，覆盖 v2 opaque、双载荷 16 字节前缀/48 字节差异、URL、JSON、自定义 scheme、非法 base64。
+- 导入领域层：`src/app/ruleImport.ts` 已把原始 JSON/URL/QR raw JSON 接到 `SiteRepository`；`v2:` 仍明确报 `UNSUPPORTED_QR_PAYLOAD`。
 - Android 自检页 10/10，含 3 条 QR 检查（v2 识别、64 bytes、要求规则 JSON/URL）；**只验证载荷识别，不是相机扫码**。
 - 明文取证路径：见 [yealico-rule-extraction.md](yealico-rule-extraction.md)，用 Yealico 站点菜单 → Edit 逐页截图/复制。
 
@@ -91,8 +93,8 @@ Yealico QR Code: v2:ImJpWmDcnxYVUFVnmJTeQGK+gxDqQ54aXbjfZZYW95uwfyG8ZZieqthW0YRH
 ## 5. 对计划的调整
 
 - **P0**：新增“QR 样本与载荷格式”清点项；每个 QR 记录前缀、版本、载荷长度、可解性、来源。
-- **P2**：导入层先支持 URL / 原始 JSON / 自有 scheme；Yealico v2 若仍无解码依据，必须报 `UNSUPPORTED_QR_PAYLOAD` 并提供粘贴/URL 回退。
-- **P3**：扫码 → 识别 → 导入/明确错误的完整流程；相机模块在格式门槛通过后再引入。
+- **P2**：导入层先支持 URL / 原始 JSON / 自有 scheme（领域层已完成）；Yealico v2 若仍无解码依据，必须报 `UNSUPPORTED_QR_PAYLOAD` 并提供粘贴/URL 回退。
+- **P3**：扫码 → 识别 → 导入/明确错误的完整流程；相机模块在格式门槛通过后再引入。**QR 是必须功能，不是可选项。**
 - 兼容矩阵新增 QR 行，状态不能因“能识别前缀”而写成“已支持”。
 
 ## 6. 需要补充的输入
