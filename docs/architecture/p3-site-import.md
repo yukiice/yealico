@@ -131,7 +131,8 @@ Yealico `v2:` 如果仍然无法离线解码，必须返回明确错误并引导
 - 原生 `QrScanner` 模块使用 Google Code Scanner（系统扫码 UI），**不申请 CAMERA 权限**，也不自己管理 CameraX 生命周期。
 - 它依赖 Play Services 的按需 Barcode UI 模块。没有 GMS、或模块无法下载的设备会走 `SCAN_FAILED`，JS 侧映射为：
   `当前设备无法使用系统扫码（需要 Google Play Services），请改用粘贴 JSON 或 https:// 规则 URL`
-- 模拟器 `trip_avd`（android-35 google_apis，GMS 24.23.35）实测报
-  `Waiting for the Barcode UI module to be downloaded.`，扫码 UI 未拉起；**真机（完整 GMS）待验证**。
+- 模拟器 `trip_avd`（android-35 **google_apis** 镜像，GMS 24.23.35）实测报
+  `Waiting for the Barcode UI module to be downloaded.`：该镜像不含 Play Store，
+  按需模块无法下载，所以扫码 UI 不会拉起。**真机（完整 GMS + Play Store）待验证**。
 - 扫码得到的 payload 进入 `importRuleFromQr`，与粘贴/URL 共用导入链路；`v2:` 仍返回 `UNSUPPORTED_QR_PAYLOAD`，不会显示成导入成功。
 - 若后续要覆盖无 GMS 设备：改用 bundled ML Kit barcode-scanning + CameraX 自建预览，或 ZXing + CameraX，两套都需要自己实现相机预览与分析循环。
