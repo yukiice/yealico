@@ -13,9 +13,12 @@ import {
   listRulePages,
   loadListPages,
 } from '../engine';
-import type { Diagnostic, RuleDocument } from '../engine';
+import type { ExtractItem, RuleDocument } from '../engine';
 import type { StoredSite } from './ruleImport';
-import { createFetchRuleFetcher } from '../platform/ruleFetcher';
+import { DetailScreen } from './DetailScreen';
+import { errorText } from './diagnostics';
+import type { ReadingProgressRepository } from './readingProgress';
+import { createRuleFetcherForPlan } from './ruleFetcherForPlan';
 
 export function defaultPageFor(rule: RuleDocument): number | undefined {
   const pages = rule.pages ?? [];
@@ -32,36 +35,23 @@ export function defaultPageFor(rule: RuleDocument): number | undefined {
   return withRule >= 0 ? withRule : 0;
 }
 
-function errorText(diagnostics: Diagnostic[]): string {
-  const errors = diagnostics.filter(item => item.severity === 'error');
-  return errors.length > 0
-    ? errors
-        .slice(0, 3)
-        .map(item => `${item.code}: ${item.detail ?? item.fieldPath}`)
-        .join('\n')
-    : '';
-}
-
 export function SiteWorkspace({
   site,
+  progress,
   onBack,
 }: {
   site: StoredSite;
+  progress: ReadingProgressRepository;
   onBack: () => void;
 }): React.JSX.Element {
   const pages = useMemo(() => listRulePages(site.rule), [site.rule]);
   const [page, setPage] = useState<number | undefined>(() =>
     defaultPageFor(site.rule),
   );
-  const fetcher = useMemo(
-    () => createFetchRuleFetcher({ timeoutMs: 15_000 }),
-    [],
-  );
-  const [items, setItems] = useState<
-    Array<{ title?: string; idCode?: string; cover?: string }>
-  >([]);
+  const [items, setItems] = useState<ExtractItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedItem, setSelectedItem] = useState<ExtractItem | null>(null);
 
   const built = useMemo(() => {
     if (pages.length === 0) {
@@ -72,6 +62,11 @@ export function SiteWorkspace({
     }
     return buildPagePlan(site.rule, page ?? 0);
   }, [pages.length, page, site.rule]);
+  const fetcher = useMemo(
+    () => createRuleFetcherForPlan(built.plan),
+    [built.plan],
+  );
+  const lastRead = progress.latestForSite(site.id);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,6 +112,21 @@ export function SiteWorkspace({
     };
   }, [built, fetcher, site.domain]);
 
+  if (selectedItem) {
+    return (
+      <DetailScreen
+        siteName={site.name}
+        siteId={site.id}
+        domain={site.domain}
+        rule={built.rule}
+        plan={built.plan}
+        item={selectedItem}
+        progress={progress}
+        onBack={() => setSelectedItem(null)}
+      />
+    );
+  }
+
   return (
     <View style={styles.root}>
       <Pressable onPress={onBack} style={styles.backButton}>
@@ -124,6 +134,13 @@ export function SiteWorkspace({
       </Pressable>
       <Text style={styles.title}>{site.name}</Text>
       <Text style={styles.meta}>{site.domain}</Text>
+      {lastRead ? (
+        <Text style={styles.lastRead}>
+          {`上次读到《${lastRead.chapterTitle ?? lastRead.chapterKey}》第 ${
+            lastRead.index + 1
+          } 张`}
+        </Text>
+      ) : null}
 
       {pages.length > 0 && (
         <ScrollView
@@ -133,7 +150,10 @@ export function SiteWorkspace({
           {pages.map(item => (
             <Pressable
               key={item.index}
-              onPress={() => setPage(item.index)}
+              onPress={() => {
+                setSelectedItem(null);
+                setPage(item.index);
+              }}
               style={[
                 styles.pageButton,
                 page === item.index && styles.pageButtonActive,
@@ -159,12 +179,15 @@ export function SiteWorkspace({
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
           {items.map((item, index) => (
-            <View key={item.idCode ?? `${index}`} style={styles.item}>
+            <Pressable
+              key={item.idCode ?? `${index}`}
+              onPress={() => setSelectedItem(item)}
+              style={styles.item}>
               <Text style={styles.itemTitle}>{item.title ?? '(无标题)'}</Text>
               {item.idCode ? (
                 <Text style={styles.itemMeta}>{item.idCode}</Text>
               ) : null}
-            </View>
+            </Pressable>
           ))}
         </ScrollView>
       )}
@@ -195,6 +218,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     marginBottom: 10,
+  },
+  lastRead: {
+    color: '#93c5fd',
+    fontSize: 12,
+    marginBottom: 8,
   },
   pageList: {
     paddingBottom: 8,

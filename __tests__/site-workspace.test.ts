@@ -1,4 +1,5 @@
 import { defaultPageFor } from '../src/app/SiteWorkspace';
+import { detailUrlFor } from '../src/app/DetailScreen';
 import type { RuleDocument } from '../src/engine';
 
 test('prefers a recent/update page', () => {
@@ -41,4 +42,16 @@ test('falls back to a page with a rule, then index 0', () => {
 
 test('returns undefined for a site without pages', () => {
   expect(defaultPageFor({ name: 'No Pages', domain: 'example.test' })).toBeUndefined();
+});
+
+test('builds a detail URL from idCode and preserves page templates', () => {
+  const rule: RuleDocument = {
+    name: 'Detail URL',
+    domain: 'example.test',
+    detailUrl: 'https://example.test/comic/{idCode:}/',
+  };
+  expect(detailUrlFor(rule, { idCode: '123' }, 'example.test')).toBe(
+    'https://example.test/comic/123/',
+  );
+  expect(detailUrlFor(rule, {}, 'example.test')).toBeUndefined();
 });

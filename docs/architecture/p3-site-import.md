@@ -1,7 +1,7 @@
 # P3：站点导入与二维码（必须功能）
 
 - 记录日期：2026-10-21
-- 状态：**领域层、站点管理 UI、Android 本地持久化和页面/列表页已实现；相机扫码、Yealico QR v2 解码、详情/阅读器未完成**
+- 状态：**领域层、站点管理 UI、本地持久化、页面/列表、详情展示、单页阅读器和阅读进度已实现；相机扫码、QR v2 解码未完成**
 - 关联：[开发计划](../DEVELOPMENT_PLAN.md)、[QR 导入格式](../rules/qr-import.md)
 
 ## 1. 已实现
@@ -30,8 +30,8 @@
 ### Android UI 与持久化
 
 - `SiteManager` 提供规则 JSON/URL 输入、导入、站点列表和删除；
-- Android `SiteStore` 原生模块使用 SharedPreferences 保存站点 JSON；
-- 已在模拟器验证：URL 导入成功、强制停止/重开后站点仍在、删除后重开为空；
+- Android `SiteStore` 原生模块使用 SharedPreferences 保存整份库；格式已从裸 `StoredSite[]` 升级为 `{ version: 2, sites, progress }`，旧数据读取时自动迁移；
+- 已在模拟器验证：URL 导入成功、强制停止/重开后站点仍在、删除后重开为空；阅读进度的“杀进程恢复”尚未在 Android 上验收；
 - 无原生模块时（如 Jest）回退到进程内存，不阻塞 UI 测试；
 - 当前没有阅读器入口，站点列表只是导入/管理闭环。
 
@@ -43,12 +43,27 @@
 - 展示标题、idCode，列表加载/空结果/错误和返回；
 - 静态规则可直接用；需要 WebView 的列表页目前会明确报 `NEEDS_WEBVIEW`，尚未接 WebView list fetcher。
 
+### 列表 → 详情
+
+- 点击列表项按 `detailUrl + {idCode}` 生成详情 URL；
+- `DetailScreen` 使用 `loadDetail`，按计划选择普通 fetch 或原生 WebView fetcher；
+- 展示标题、封面、作者、简介、章节列表和 Aba 的图片列表；
+- 章节行可点，进入 `ReaderScreen` 单页阅读器，详见 [P3 章节图库阅读器](p3-reader.md)。
+
+### 章节 → 阅读器
+
+- 章节点击把 `ChapterItem.url` 模板交给 `loadGalleryPages`；
+- 阅读器按页预算拉取（首次 4 页，可继续加载到 `totalPages`）；
+- 单页翻页，有加载、失败重试和当前图之后 2 张预加载；
+- 图片请求带规则头，缺 Referer 时补站点根地址；
+- 阅读进度按 `siteId + chapterKey` 持久化，重启后可恢复，详见 [P3 章节图库阅读器](p3-reader.md#15-阅读进度)。
+
 ## 2. 现在还不能做什么
 
 - 没有相机扫码、相册二维码解析；
 - 没有 Yealico `v2:` 解密；
 - 没有 `{"encrypted":"v2:..."}` 解密；
-- 没有详情和阅读器；需要 WebView 的列表页尚未自动切换 renderer。
+- 没有章节连读、连续滚动/双页模式；需要 WebView 的列表/详情/图库已自动切换 renderer。
 
 所以当前是**可测试的导入领域层**，不是可交付的“扫码添加站点”功能。
 

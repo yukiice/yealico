@@ -2,7 +2,7 @@
 
 面向 Android 的规则驱动图片 / 漫画阅读器，目标是在声明支持的功能范围内运行用户已有的 Yealico 站点规则，而不是要求用户重写扩展。
 
-当前处于 **P2 引擎完成、P3 站点导入/管理/列表接入中**：Android 公开站点 List/Detail、漫画柜在线 Detail/Gallery、WebView、站点导入 UI、本地持久化和站点页面/列表已跑通；详情/阅读器 UI、登录/Cookie 仍未完成，不承诺全部规则兼容。
+当前处于 **P2 引擎完成、P3 站点导入/管理/列表/详情/阅读接入中**：Android 公开站点 List/Detail、漫画柜在线 Detail/Gallery、WebView、站点导入 UI、本地持久化、页面/列表、详情展示和单页阅读器已跑通；登录/Cookie、阅读进度恢复仍未完成，不承诺全部规则兼容。
 
 站点导入领域层（JSON/URL/QR raw JSON、去重、删除）已完成；相机扫码和 Yealico QR v2 解码是**必须但延后**的功能，当前不能用阿巴基猫二维码直接添加站点。
 
@@ -86,12 +86,13 @@ docs/architecture/       阶段基线与运行时记录
 - [兼容矩阵](docs/rules/compat-matrix.md)
 - [P1 基线与验证记录](docs/architecture/p1-baseline.md)
 - [P2 Detail/Gallery 链路](docs/architecture/p2-detail-gallery.md)
+- [P3 章节图库阅读器](docs/architecture/p3-reader.md)
 
 ## 已知限制
 
-- UI：站点导入/列表/删除、页面选择和列表页已实现；详情、阅读器、翻页尚未实现。
-- WebView 已能渲染并取 DOM，但还没有产品化阅读器/导航；登录、consent、Cookie 共享、图片请求头尚未实现。
-- Android 验证了阿巴基猫公开 List/Detail、漫画柜在线 Detail/首图；分页/阅读器未接，禁漫等真实 Detail/Gallery 未在 Android 执行。
+- UI：站点导入/列表/删除、页面选择、列表、详情展示、单页阅读器和阅读进度已实现；连续滚动/双页、章节连读尚未实现。
+- WebView 已能渲染并取 DOM，阅读器已接入单章节画廊；登录、consent、Cookie 共享尚未实现，图片请求只补了规则头与默认 Referer。
+- Android 验证了阿巴基猫公开 List/Detail、漫画柜在线 Detail/首图；阅读器和阅读进度目前仅 Jest 验证，未在 Android 上验收。
 - QR 导入：JSON/URL/QR raw JSON 已有导入领域层；Yealico `v2:` 仍只识别、未解码，相机扫码 UI 未实现。二维码是必须功能，验收见 [P3 站点导入](docs/architecture/p3-site-import.md)。
 - `+` 多 JSONPath、`$root` 完整语法、数学表达式 replacement、GBK/Big5 尚未实现或验证。
 - 真实规则来自作者 `wc3818290`，只在私有仓库/本地测试使用；不要公开再分发。

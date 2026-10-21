@@ -278,11 +278,17 @@ export async function loadListPages(
     }
     urls.push(request.url);
 
-    const result = executeList(rule, plan, fetched.response.body, {
-      ...context,
-      page: index + 1,
-      baseUrl: fetched.response.url || request.url,
-    });
+    const result = executeList(
+      rule,
+      plan,
+      fetched.response.body,
+      {
+        ...context,
+        page: index + 1,
+        baseUrl: fetched.response.url || request.url,
+      },
+      { allowWebView: fetcher.webview === true },
+    );
     diagnostics.push(...result.diagnostics);
     pages += 1;
 

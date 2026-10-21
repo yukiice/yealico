@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -15,6 +15,11 @@ import {
 } from './ruleImport';
 import type { Diagnostic } from '../engine';
 import type { StoredSite } from './ruleImport';
+import {
+  parseSiteLibrary,
+  ReadingProgressRepository,
+  serializeSiteLibrary,
+} from './readingProgress';
 import { createFetchRuleFetcher } from '../platform/ruleFetcher';
 import { createSiteStorage } from '../platform/siteStorage';
 import { SiteWorkspace } from './SiteWorkspace';
@@ -37,6 +42,7 @@ export function SiteManager(): React.JSX.Element {
     [],
   );
   const repository = useRef(new SiteRepository());
+  const progress = useRef(new ReadingProgressRepository()).current;
   const [sites, setSites] = useState<StoredSite[]>([]);
   const [input, setInput] = useState('');
   const [message, setMessage] = useState('粘贴 Yealico 规则 JSON 或规则 URL');
@@ -53,11 +59,10 @@ export function SiteManager(): React.JSX.Element {
           return;
         }
         try {
-          const parsed = JSON.parse(raw) as unknown;
-          if (Array.isArray(parsed)) {
-            repository.current = new SiteRepository(parsed as StoredSite[]);
-            setSites(repository.current.list());
-          }
+          const library = parseSiteLibrary(raw);
+          repository.current = new SiteRepository(library.sites);
+          progress.replaceAll(library.progress);
+          setSites(repository.current.list());
         } catch {
           setMessage('本地站点数据损坏，已保留空列表');
         }
@@ -79,11 +84,29 @@ export function SiteManager(): React.JSX.Element {
     return () => {
       mounted = false;
     };
-  }, [storage]);
+  }, [progress, storage]);
 
-  const persist = async (): Promise<void> => {
-    await storage.save(JSON.stringify(repository.current.list()));
-  };
+  const persist = useCallback(async (): Promise<void> => {
+    await storage.save(
+      serializeSiteLibrary(repository.current.list(), progress.list()),
+    );
+  }, [progress, storage]);
+
+  // 阅读器翻页时由仓库触发写盘，避免把存储调用再往下传一层。
+  useEffect(() => {
+    progress.onChange = () => {
+      persist().catch(error => {
+        setMessage(
+          `保存阅读进度失败: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      });
+    };
+    return () => {
+      progress.onChange = undefined;
+    };
+  }, [persist, progress]);
 
   const importRule = async (): Promise<void> => {
     const payload = input.trim();
@@ -124,6 +147,7 @@ export function SiteManager(): React.JSX.Element {
     if (!repository.current.remove(id)) {
       return;
     }
+    progress.removeSite(id);
     await persist();
     setSites(repository.current.list());
     setMessage('已删除站点');
@@ -133,6 +157,7 @@ export function SiteManager(): React.JSX.Element {
     return (
       <SiteWorkspace
         site={selectedSite}
+        progress={progress}
         onBack={() => setSelectedSite(null)}
       />
     );

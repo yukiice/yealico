@@ -155,8 +155,9 @@ export function executeList(
   plan: RoutePlan,
   content: string,
   context: PageContext,
+  options: { allowWebView?: boolean } = {},
 ): ListResult {
-  const blocked = blockingDiagnostics(plan);
+  const blocked = blockingDiagnostics(plan, options.allowWebView);
   if (blocked.length > 0) {
     return { items: [], diagnostics: blocked };
   }
