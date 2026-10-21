@@ -2,8 +2,16 @@ import { runNetworkSelftest } from '../src/platform/networkSelftest';
 import type { RuleFetcher } from '../src/engine';
 
 test('runs the public Aba page through loadListPages with a real rule', async () => {
+  const detailUrl = 'https://wc3818290.home.blog/2024/12/01/foo/';
   const fetcher: RuleFetcher = {
     async fetch(request) {
+      if (request.url === detailUrl) {
+        return {
+          url: request.url,
+          status: 200,
+          body: '<div class="entry-content"><img src="/img/cover.jpg"></div>',
+        };
+      }
       return {
         url: request.url,
         status: 200,
@@ -18,7 +26,8 @@ test('runs the public Aba page through loadListPages with a real rule', async ()
   };
 
   const results = await runNetworkSelftest(fetcher);
-  expect(results).toHaveLength(3);
+  expect(results).toHaveLength(6);
   expect(results.every(result => result.ok)).toBe(true);
   expect(results[1].detail).toContain('items=2');
+  expect(results[4].detail).toContain('pictures=1');
 });

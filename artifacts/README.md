@@ -34,12 +34,12 @@ Android 模拟器上的 P1 自检证据：
 - `p1-android-pass.png`：10/10 通过
 - `p1-android.png`：早期 URL polyfill 失败证据
 
-## `p2-network.png`
+## `p2-aba-detail.png`
 
 Android 模拟器上的 P2 验证证据（2026-10-21）：
 
 - 同步自检：13/13 通过（含 pages、totalImages）
-- 公开站点网络探针：3/3 通过，阿巴基猫 `update_history` 第 1 页 70 条、0 error diagnostics
+- 公开站点网络探针：6/6 通过，阿巴基猫 `update_history` 第 1 页 70 条，随后进入第一条详情页得到 4 张图片、0 error diagnostics
 - 只访问公开博客；未访问禁漫等成人站点
 
 ## 生成的真实规则

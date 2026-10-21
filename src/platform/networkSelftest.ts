@@ -1,5 +1,7 @@
 import {
   buildPagePlan,
+  expandUrl,
+  loadDetail,
   loadListPages,
   toRuleDocument,
 } from '../engine';
@@ -37,6 +39,35 @@ export async function runNetworkSelftest(
     diagnostic => diagnostic.severity === 'error',
   );
   const firstTitle = result.items[0]?.title;
+  const firstItem = result.items.find(item => item.idCode);
+  const detailTemplate = built.rule.detailUrl;
+  const detailUrl =
+    firstItem?.idCode && detailTemplate
+      ? expandUrl(
+          detailTemplate,
+          {
+            baseUrl: ABA_PAGE_URL,
+            idCode: firstItem.idCode,
+            domain: 'wc3818290.home.blog',
+          },
+          'detailUrl',
+        ).url
+      : '';
+  const detail = detailUrl
+    ? await loadDetail(
+        built.rule,
+        built.plan,
+        fetcher,
+        detailUrl,
+        {
+          baseUrl: detailUrl,
+          domain: 'wc3818290.home.blog',
+        },
+      )
+    : undefined;
+  const detailErrors = (detail?.diagnostics ?? []).filter(
+    diagnostic => diagnostic.severity === 'error',
+  );
 
   return [
     {
@@ -58,6 +89,31 @@ export async function runNetworkSelftest(
         errors.length === 0
           ? 'none'
           : errors
+              .slice(0, 3)
+              .map(item => `${item.code}:${item.fieldPath}`)
+              .join(', '),
+    },
+    {
+      name: 'network: Aba detail fetched',
+      ok: Boolean(detailUrl && detail && detail.urls.length > 0),
+      detail: detailUrl
+        ? `url=${detailUrl}, fetched=${detail?.urls.length ?? 0}`
+        : 'no idCode/detailUrl',
+    },
+    {
+      name: 'network: Aba detail pictures',
+      ok: Boolean(detail && detail.pictures.length > 0),
+      detail: `pictures=${detail?.pictures.length ?? 0}, cover=${
+        detail?.fields.cover ? 'yes' : 'no'
+      }`,
+    },
+    {
+      name: 'network: detail no error diagnostics',
+      ok: detailErrors.length === 0,
+      detail:
+        detailErrors.length === 0
+          ? 'none'
+          : detailErrors
               .slice(0, 3)
               .map(item => `${item.code}:${item.fieldPath}`)
               .join(', '),

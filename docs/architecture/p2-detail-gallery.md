@@ -2,7 +2,7 @@
 
 - 记录日期：2026-10-20
 - 范围：List 页面选择、DetailRule、GalleryRule、二级页、`totalImages` 推导、翻页 URL 生成与加载编排。
-- 状态：**Node/Jest 与 Android RN fetch 均已跑通**；Android 同步自检 13/13，公开阿巴基猫网络探针 3/3；UI、登录/Cookie 仍未接。
+- 状态：**Node/Jest 与 Android RN fetch 均已跑通**；Android 同步自检 13/13，公开阿巴基猫 List/Detail 网络探针 6/6；UI、登录/Cookie 仍未接。
 
 ## 1. 已实现
 
@@ -94,7 +94,7 @@ RN/Android 侧由 `createFetchRuleFetcher` 适配：
 - 默认 `credentials: include`，为后续 Cookie 会话保留入口；
 - 不绑定 RN，可在 Node 用注入的 fake fetch 测试。
 
-自检页提供手动“运行真实规则网络探针”：只请求阿巴基猫公开 `update_history`，用真实 `pages` 规则走 `loadListPages`，不自动访问成人站点。
+自检页提供手动“运行真实规则网络探针”：只请求阿巴基猫公开 `update_history`，用真实 `pages` 规则走 `loadListPages`，再取第一条 `idCode` 走 `loadDetail`，不自动访问成人站点。
 
 ### 1.5 翻页 URL
 
@@ -151,11 +151,13 @@ RN/Android 侧由 `createFetchRuleFetcher` 适配：
 
 - APK 使用 Temurin 17 构建，`assembleDebug` 成功。
 - Metro 冷启动后，App 同步自检 **13/13** 通过；新增 `pages: selected url`、`pages: page rule items`、`totalImages: expanded pictures`。
-- 手动网络探针 **3/3** 通过：
+- 手动网络探针 **6/6** 通过：
   - 阿巴基猫 `update_history` 第 1 页抓取成功；
   - `loadListPages` 返回 70 条；
-  - 0 error diagnostics。
-- 证据：`artifacts/p2-network.png`。
+  - 第一条详情页抓取成功；
+  - `loadDetail` 得到 4 张图片、`cover=yes`；
+  - 列表与详情均 0 error diagnostics。
+- 证据：`artifacts/p2-aba-detail.png`。
 - 未在 Android 上执行禁漫 Detail/Gallery，也未做登录/Cookie 在线验收。
 
 ## 3. 真实规则暴露并已修复的兼容点
@@ -176,7 +178,7 @@ RN/Android 侧由 `createFetchRuleFetcher` 适配：
 
 ## 4. 仍未实现
 
-- Android 上只验证了阿巴基猫公开 List；禁漫等真实 Detail/Gallery 未在 Android 执行。
+- Android 上只验证了阿巴基猫公开 List/Detail；禁漫等真实 Detail/Gallery 未在 Android 执行。
 - UI：站点列表、页面选择、详情、阅读器、翻页。
 - WebView、登录、consent、Cookie、图片请求头。
 - `videoRule`、`commentRule`、`seriesRule`、`searchUrl`、`displayMode=tag`。

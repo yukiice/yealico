@@ -2,7 +2,7 @@
 
 面向 Android 的规则驱动图片 / 漫画阅读器，目标是在声明支持的功能范围内运行用户已有的 Yealico 站点规则，而不是要求用户重写扩展。
 
-当前处于 **P2 引擎完成、Android List 网络探针通过、UI 待开发**。已完成合成 fixture 在 Node 与 Android 模拟器上的一致结果，并已从 macOS Yealico 容器提取 6 条真实规则（含禁漫 2.26、阿巴基猫 2.4）。pages、二级详情/图库、`totalImages` 推导与 RN fetch 适配器已落地；阅读器 UI、登录/Cookie 和完整在线验收仍未完成，不承诺全部规则兼容。
+当前处于 **P2 引擎完成、Android 公开站点 List/Detail 网络探针通过、UI 待开发**。已完成合成 fixture 在 Node 与 Android 模拟器上的一致结果，并已从 macOS Yealico 容器提取 6 条真实规则（含禁漫 2.26、阿巴基猫 2.4）。pages、二级详情/图库、`totalImages` 推导与 RN fetch 适配器已落地；阅读器 UI、登录/Cookie 和完整在线验收仍未完成，不承诺全部规则兼容。
 
 ## 技术基线
 
@@ -50,7 +50,7 @@ JAVA_HOME=/path/to/jdk-17 ./gradlew assembleDebug --no-daemon
 `App.tsx` 是开发自检页，不是产品 UI：
 
 - 运行 5 组合成 fixture（列表、图库、JSON、不支持能力、QR 载荷）+ pages/totalImages，显示 13 项 PASS/FAIL。
-- 手动“真实规则网络探针”：用阿巴基猫公开规则走 `loadListPages`，只访问公开博客。
+- 手动“真实规则网络探针”：用阿巴基猫公开规则走 `loadListPages` → 第一条 `loadDetail`，只访问公开博客。
 - 显示 20 次重复的解析耗时基线。
 - 明确标注“合成 fixture，仅验证规则引擎；网络探针不代表全部真实站点兼容”。
 
