@@ -109,8 +109,8 @@ Node 侧结果（2026-10-20）：
 
 - lint：0 error / 0 warning。
 - typecheck：通过（应用配置 + 测试配置）。
-- Jest：12 个 suite、52 个用例全部通过（P2 页面/二级页/totalImages/RN fetch 适配器后）。
-- 覆盖：golden fixture、分页/URL 占位符、函数链、regex、受限 JSONPath、QR、真实 `List: recently`、Detail/Gallery、chapter URL 模板、attr fallback、分页编排与去重、pages、二级页、totalImages、fetch 超时与网络探针。
+- Jest：13 个 suite、55 个用例全部通过（含 GalleryRule 直接 image 集合）。
+- 覆盖：golden fixture、分页/URL 占位符、函数链、regex、受限 JSONPath、QR、真实 `List: recently`、Detail/Gallery、chapter URL 模板、attr fallback、分页编排与去重、pages、二级页、totalImages、直接 image 集合、fetch 超时与网络探针。
 
 真实规则验证（2026-10-20）：
 

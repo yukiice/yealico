@@ -64,6 +64,7 @@
   - 未提供二级内容时返回 `secondLevelUrl` + `SECOND_LEVEL_REQUIRED`；
   - 提供 `secondaryContent` 后，`totalPages` / `item` / `image` 在二级页执行；
   - 缺少 `selector`、只有 `regex`/`replacement` 的页面级 URL 选择器默认作用于整页（真实 M-ngabz 规则）。
+- `GalleryRule` 没有 `item` 时，`image` 的 selector 直接选出图片节点；没有显式 `function/param` 时按 `src` / `data-src` / `data-original` 取图（漫画柜 1.7 形态）。
 - 二级页解析失败或为空时进入 diagnostics，不伪造成空图库。
 
 ### 1.4 加载编排
@@ -166,7 +167,7 @@ RN/Android 侧由 `createFetchRuleFetcher` 适配：
 
 | 站点 | 章节/详情 | 图库 | 主要缺口 | 结论 |
 | --- | --- | --- | --- | --- |
-| 漫画柜 1.7 | `chapterRule` 完整 | `totalPages` + `image`，但无 `item` | `flags.jsNeededDetail`，详情需要 WebView；`GalleryRule` 是直接图片集合形态，当前执行器要求 `item` | 需先补 WebView / 直接 image 集合语义 |
+| 漫画柜 1.7 | `chapterRule` 完整 | `totalPages` + `image`，无 `item` | 直接 image 集合语义已补；`flags.jsNeededDetail` 仍需 WebView 才能跑详情 | 图库可离线验证；详情待 WebView |
 | 拷貝漫畫 2.15 | `chapterRule` 有 item/idCode/title，但 **无 url** | `item` + `image`，使用 class 属性转换 | 章节 URL 无法生成；图库规则依赖站点 class 结构 | 只适合离线结构测试 |
 | M-ngabz 2.1 | `chapterRule` + `secondLevelPageUrl` | `item` + `image`，但无 `totalPages` | 图库分页只能按单页验证；站点不适合作为公开验收样本 | 可做合成二级页测试 |
 | 禁漫 2.26 | `chapterRule` 完整 | `totalPages` + `item` + `image` 完整 | 成人站点，不做未授权在线抓取 | 仅合成页验证 |
@@ -209,7 +210,8 @@ RN/Android 侧由 `createFetchRuleFetcher` 适配：
 - `__tests__/load-second-level.test.ts`：`loadDetail` 三级链路、`loadGalleryPages` 每页二级页。
 - `__tests__/total-images.test.ts`：模板展开、无 item、缺 `totalImages` 告警。
 - `__tests__/real-rules.test.ts`：禁漫页面选择、拷貝漫畫 `photoAlbumLink`、M-ngabz 无 selector 的 `secondLevelPageUrl`。
-- 当前 Jest：**12 个 suite、52 个用例**；`npm run typecheck`、`npm run lint` 通过。
+- `__tests__/gallery-direct.test.ts`：无 `item` 的直接 image 集合，以及漫画柜 1.7 规则的离线页。
+- 当前 Jest：**13 个 suite、55 个用例**；`npm run typecheck`、`npm run lint` 通过。
 - `__tests__/rule-fetcher.test.ts`：fetch 转换、Headers、超时。
 - `__tests__/network-selftest.test.ts`：真实阿巴基猫规则 + mock fetcher 的 `loadListPages`。
 

@@ -409,17 +409,6 @@ export function executeGallery(
     }
   }
 
-  const itemSpec = normalizeSelector(galleryRule.item);
-  if (!itemSpec) {
-    diagnostics.push({
-      fieldPath: 'galleryRule.item',
-      code: 'MISSING_FIELD',
-      detail: 'item is required for GalleryRule',
-      severity: 'error',
-    });
-    return { totalPages, secondLevelUrl, images: [], diagnostics };
-  }
-
   const imageSpec = normalizeSelector(galleryRule.image);
   if (!imageSpec) {
     diagnostics.push({
@@ -429,6 +418,69 @@ export function executeGallery(
       severity: 'error',
     });
     return { totalPages, secondLevelUrl, images: [], diagnostics };
+  }
+
+  const itemSpec = normalizeSelector(galleryRule.item);
+  if (!itemSpec) {
+    // 真实规则（漫画柜 1.7）允许 GalleryRule 直接给出 image 集合，
+    // 不设置 item。此时 image 的 selector 选出的节点就是图片节点；
+    // 没有显式 function/param 时，默认按 src/data-src/data-original 取图。
+    let directNodes: Array<AnyNode | JsonValue> = [];
+    try {
+      directNodes = selectNodes(imageSpec.selector, {
+        root: parsed.root,
+        current: parsed.root,
+        jsonRoot: parsed.json,
+        baseUrl: pageContext.baseUrl,
+      });
+    } catch (error) {
+      diagnostics.push({
+        fieldPath: 'galleryRule.image',
+        code:
+          error instanceof UnsupportedJsonPathError
+            ? 'UNSUPPORTED_JSONPATH'
+            : 'INVALID_RULE',
+        detail: error instanceof Error ? error.message : String(error),
+        severity: 'error',
+      });
+      return { totalPages, secondLevelUrl, images: [], diagnostics };
+    }
+
+    const directSpec: SelectorSpec = {
+      ...imageSpec,
+      selector: 'this',
+      ...(imageSpec.function ? {} : { function: 'attr' }),
+      ...(imageSpec.param
+        ? {}
+        : { param: 'src,data-src,data-original' }),
+    };
+    const images: string[] = [];
+    for (const node of directNodes) {
+      const result = evaluateSelector(
+        directSpec,
+        {
+          root: node,
+          current: node,
+          jsonRoot: parsed.json,
+          baseUrl: pageContext.baseUrl,
+          domain: context.domain,
+        },
+        'galleryRule.image',
+      );
+      diagnostics.push(...result.diagnostics);
+      if (result.value) {
+        images.push(resolveUrl(result.value, pageContext.baseUrl));
+      }
+    }
+    if (directNodes.length === 0) {
+      diagnostics.push({
+        fieldPath: 'galleryRule.image',
+        code: 'EMPTY_RESULT',
+        detail: 'direct image selector returned no nodes',
+        severity: 'warning',
+      });
+    }
+    return { totalPages, secondLevelUrl, images, diagnostics };
   }
 
   let nodes: Array<AnyNode | JsonValue>;

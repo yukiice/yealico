@@ -69,8 +69,8 @@
 
 - `secondLevelPageUrl`：二级页面；设置后 `pictureRule` / `videoRule` 作用于该链接页（已实现 gallery 二级页编排；允许省略 `selector`）。
 - `totalPages`：当前图库页的总页数。
-- `item`：当前页图片集合。
-- `image`：单张图片 URL。
+- `item`：当前页图片集合；省略时 `image` 的 selector 直接作为图片集合（漫画柜 1.7 形态）。
+- `image`：单张图片 URL；直接集合模式下缺少 `function/param` 时默认取 `src` / `data-src` / `data-original`。
 - `videoRule`：与 pictureRule 同构。
 
 **注意**：`GalleryRule` 不是 `DetailRule.pictureRule` 的别名。两者的页面来源、分页字段和导航位置不同，必须分别建模。
