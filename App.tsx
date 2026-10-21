@@ -20,6 +20,8 @@ import { runBenchmark, runSelftest } from './src/engine/selftest';
 import type { SelftestResult } from './src/engine/selftest';
 import { createFetchRuleFetcher } from './src/platform/ruleFetcher';
 import { runNetworkSelftest } from './src/platform/networkSelftest';
+import { createNativeWebViewRenderer } from './src/platform/nativeWebView';
+import { runWebViewSelftest } from './src/platform/webviewSelftest';
 
 function App(): React.JSX.Element {
   const results = useMemo(() => runSelftest(), []);
@@ -30,8 +32,11 @@ function App(): React.JSX.Element {
   );
   const [networkResults, setNetworkResults] = useState<SelftestResult[]>([]);
   const [networkRunning, setNetworkRunning] = useState(false);
+  const [webViewResults, setWebViewResults] = useState<SelftestResult[]>([]);
+  const [webViewRunning, setWebViewRunning] = useState(false);
   const failed = results.filter(result => !result.ok).length;
   const networkFailed = networkResults.filter(result => !result.ok).length;
+  const webViewFailed = webViewResults.filter(result => !result.ok).length;
 
   const runNetwork = async (): Promise<void> => {
     if (networkRunning) {
@@ -50,6 +55,28 @@ function App(): React.JSX.Element {
       ]);
     } finally {
       setNetworkRunning(false);
+    }
+  };
+
+  const runWebView = async (): Promise<void> => {
+    if (webViewRunning) {
+      return;
+    }
+    setWebViewRunning(true);
+    try {
+      setWebViewResults(
+        await runWebViewSelftest(createNativeWebViewRenderer()),
+      );
+    } catch (error) {
+      setWebViewResults([
+        {
+          name: 'webview: unexpected error',
+          ok: false,
+          detail: error instanceof Error ? error.message : String(error),
+        },
+      ]);
+    } finally {
+      setWebViewRunning(false);
     }
   };
 
@@ -76,6 +103,15 @@ function App(): React.JSX.Element {
           {networkRunning ? '网络探针运行中…' : '运行真实规则网络探针'}
         </Text>
       </Pressable>
+      <Pressable
+        testID="webview-selftest"
+        onPress={runWebView}
+        disabled={webViewRunning}
+        style={[styles.button, webViewRunning && styles.buttonDisabled]}>
+        <Text style={styles.buttonText}>
+          {webViewRunning ? 'WebView 探针运行中…' : '运行 WebView 规则探针'}
+        </Text>
+      </Pressable>
       {networkResults.length > 0 && (
         <Text
           style={[
@@ -87,7 +123,26 @@ function App(): React.JSX.Element {
             : `网络探针失败 ${networkFailed}/${networkResults.length}`}
         </Text>
       )}
+      {webViewResults.length > 0 && (
+        <Text
+          style={[
+            styles.networkSummary,
+            webViewFailed === 0 ? styles.pass : styles.fail,
+          ]}>
+          {webViewFailed === 0
+            ? `WebView 探针通过 (${webViewResults.length})`
+            : `WebView 探针失败 ${webViewFailed}/${webViewResults.length}`}
+        </Text>
+      )}
       <ScrollView contentContainerStyle={styles.list}>
+        {webViewResults.map(result => (
+          <View key={result.name} style={styles.row}>
+            <Text style={[styles.name, result.ok ? styles.pass : styles.fail]}>
+              {result.ok ? 'PASS' : 'FAIL'} {result.name}
+            </Text>
+            <Text style={styles.detail}>{result.detail}</Text>
+          </View>
+        ))}
         {networkResults.map(result => (
           <View key={result.name} style={styles.row}>
             <Text style={[styles.name, result.ok ? styles.pass : styles.fail]}>

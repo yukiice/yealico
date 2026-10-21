@@ -2,7 +2,7 @@
 
 - 记录日期：2026-10-20
 - 范围：List 页面选择、DetailRule、GalleryRule、二级页、`totalImages` 推导、翻页 URL 生成与加载编排。
-- 状态：**Node/Jest 与 Android RN fetch 均已跑通**；Android 同步自检 13/13，公开阿巴基猫 List/Detail 网络探针 6/6；UI、登录/Cookie 仍未接。
+- 状态：**Node/Jest、Android RN fetch 与原生 WebView 均已跑通**；Android 同步自检 13/13，阿巴基猫 List/Detail 网络探针 6/6，WebView 本地 JS 探针 2/2；UI、登录/Cookie 仍未接。
 
 ## 1. 已实现
 
@@ -97,6 +97,14 @@ RN/Android 侧由 `createFetchRuleFetcher` 适配：
 
 自检页提供手动“运行真实规则网络探针”：只请求阿巴基猫公开 `update_history`，用真实 `pages` 规则走 `loadListPages`，再取第一条 `idCode` 走 `loadDetail`，不自动访问成人站点。
 
+Android 侧另有原生 WebView renderer：
+
+- 模块名 `WebViewRenderer`，Kotlin 实现，放在当前 Activity 的 1×1 隐藏容器里；
+- 启用 JS/DOM storage，等待 `pageReadyMarker` 或图库的 image selector 出现；
+- 通过 `evaluateJavascript` 取 `document.documentElement.outerHTML`，返回给 `RuleFetcher`；
+- `RuleFetcher.webview = true` 时，`loadDetail` / `loadGalleryPages` 才允许 `NEEDS_WEBVIEW`；
+- 自检页的 WebView 探针只用本地 JS 页面，不请求漫画柜在线页。
+
 ### 1.5 翻页 URL
 
 `buildPageUrls(template, context, maxPages)`：
@@ -160,6 +168,11 @@ RN/Android 侧由 `createFetchRuleFetcher` 适配：
   - 列表与详情均 0 error diagnostics。
 - 证据：`artifacts/p2-aba-detail.png`。
 - 未在 Android 上执行禁漫 Detail/Gallery，也未做登录/Cookie 在线验收。
+- 原生 WebView 探针 **2/2** 通过：
+  - 本地 JS 页面异步生成 `.chapter-list`；
+  - 等待 marker 后取 outerHTML；
+  - 漫画柜形态 `chapterRule` 得到 `id=456`，章节 URL 从 `#p={page:1}` 展开为 `#p=1`。
+- 证据：`artifacts/p2-webview.png`。
 
 ### 候选真实规则可用性（2026-10-21）
 
@@ -167,13 +180,13 @@ RN/Android 侧由 `createFetchRuleFetcher` 适配：
 
 | 站点 | 章节/详情 | 图库 | 主要缺口 | 结论 |
 | --- | --- | --- | --- | --- |
-| 漫画柜 1.7 | `chapterRule` 完整 | `totalPages` + `image`，无 `item` | 直接 image 集合语义已补；`flags.jsNeededDetail` 仍需 WebView 才能跑详情 | 图库可离线验证；详情待 WebView |
+| 漫画柜 1.7 | `chapterRule` 完整 | `totalPages` + `image`，无 `item` | 直接 image 集合语义和 WebView renderer 已补；在线页面未验收 | 图库可离线验证；详情可用 WebView，待在线验收 |
 | 拷貝漫畫 2.15 | `chapterRule` 有 item/idCode/title，但 **无 url** | `item` + `image`，使用 class 属性转换 | 章节 URL 无法生成；图库规则依赖站点 class 结构 | 只适合离线结构测试 |
 | M-ngabz 2.1 | `chapterRule` + `secondLevelPageUrl` | `item` + `image`，但无 `totalPages` | 图库分页只能按单页验证；站点不适合作为公开验收样本 | 可做合成二级页测试 |
 | 禁漫 2.26 | `chapterRule` 完整 | `totalPages` + `item` + `image` 完整 | 成人站点，不做未授权在线抓取 | 仅合成页验证 |
 | 阿巴基猫 2.4 | `pictureRule` 直接取图，无 chapter | 无 GalleryRule | 没有章节/图库链路 | 已做真实在线 List/Detail 验收 |
 
-因此不能把“漫画柜/拷貝漫畫有 chapterRule”直接当成“章节/图库已兼容”；直接 image 集合语义已补，下一步若要做真实章节链路，优先补漫画柜的 WebView，或继续使用合成页验证执行器。
+因此不能把“漫画柜/拷貝漫畫有 chapterRule”直接当成“章节/图库已兼容”；直接 image 集合语义和 WebView renderer 已补，下一步需要做漫画柜在线页面验收与阅读器导航。
 
 ## 3. 真实规则暴露并已修复的兼容点
 
@@ -195,7 +208,7 @@ RN/Android 侧由 `createFetchRuleFetcher` 适配：
 
 - Android 上只验证了阿巴基猫公开 List/Detail；禁漫等真实 Detail/Gallery 未在 Android 执行。
 - UI：站点列表、页面选择、详情、阅读器、翻页。
-- WebView、登录、consent、Cookie、图片请求头。
+- WebView 的产品化导航/阅读器、登录、consent、Cookie、图片请求头；WebView renderer 已有。
 - `videoRule`、`commentRule`、`seriesRule`、`searchUrl`、`displayMode=tag`。
 - `web:` 图片用 WebView 加载。
 - 禁漫等成人站点不做未授权在线抓取；阿巴基猫公开页已作为网络探针。
@@ -211,7 +224,8 @@ RN/Android 侧由 `createFetchRuleFetcher` 适配：
 - `__tests__/total-images.test.ts`：模板展开、无 item、缺 `totalImages` 告警。
 - `__tests__/real-rules.test.ts`：禁漫页面选择、拷貝漫畫 `photoAlbumLink`、M-ngabz 无 selector 的 `secondLevelPageUrl`。
 - `__tests__/gallery-direct.test.ts`：无 `item` 的直接 image 集合，以及漫画柜 1.7 规则的离线页。
-- 当前 Jest：**13 个 suite、55 个用例**；`npm run typecheck`、`npm run lint` 通过。
+- `__tests__/webview.test.ts`：WebView renderer 的 waitForSelector、`loadDetail`/`loadGalleryPages` 的 NEEDS_WEBVIEW 放行、漫画柜章节规则。
+- 当前 Jest：**14 个 suite、59 个用例**；`npm run typecheck`、`npm run lint` 通过。
 - `__tests__/rule-fetcher.test.ts`：fetch 转换、Headers、超时。
 - `__tests__/network-selftest.test.ts`：真实阿巴基猫规则 + mock fetcher 的 `loadListPages`。
 

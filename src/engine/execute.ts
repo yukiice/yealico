@@ -79,10 +79,13 @@ function coerce(field: string, value: string): string | number {
   return Number.isFinite(parsed) ? parsed : value;
 }
 
-function blockingDiagnostics(plan: RoutePlan): Diagnostic[] {
+function blockingDiagnostics(
+  plan: RoutePlan,
+  allowWebView = false,
+): Diagnostic[] {
   return plan.unsupported.filter(
     item =>
-      item.code === 'NEEDS_WEBVIEW' ||
+      (!allowWebView && item.code === 'NEEDS_WEBVIEW') ||
       item.code === 'NEEDS_LOGIN' ||
       item.code === 'NEEDS_CONSENT',
   );
@@ -276,6 +279,7 @@ export interface GalleryExecuteOptions {
   /** 由调用方抓取 GalleryRule.secondLevelPageUrl 后的页面内容。 */
   secondaryContent?: string;
   secondaryUrl?: string;
+  allowWebView?: boolean;
 }
 
 function extractSecondLevelUrl(
@@ -328,7 +332,7 @@ export function executeGallery(
   context: PageContext,
   options: GalleryExecuteOptions = {},
 ): GalleryResult {
-  const blocked = blockingDiagnostics(plan);
+  const blocked = blockingDiagnostics(plan, options.allowWebView);
   if (blocked.length > 0) {
     return { images: [], diagnostics: blocked };
   }
@@ -542,6 +546,7 @@ const DETAIL_NESTED_KEYS = new Set([
   'commentRule',
   'videoRule',
   'photoAlbumLink',
+  'pageReadyMarker',
   'name',
   'index',
 ]);
@@ -550,6 +555,7 @@ export interface DetailExecuteOptions {
   /** 由调用方抓取 DetailRule.photoAlbumLink 后的页面内容。 */
   secondaryContent?: string;
   secondaryUrl?: string;
+  allowWebView?: boolean;
 }
 
 interface MediaSource extends ParsedInput {
@@ -838,8 +844,9 @@ export function executePicturePage(
   plan: RoutePlan,
   content: string,
   context: PageContext,
+  options: DetailExecuteOptions = {},
 ): PicturePageResult {
-  const blocked = blockingDiagnostics(plan);
+  const blocked = blockingDiagnostics(plan, options.allowWebView);
   if (blocked.length > 0) {
     return { pictures: [], diagnostics: blocked };
   }
@@ -883,7 +890,7 @@ export function executeDetail(
   context: PageContext,
   options: DetailExecuteOptions = {},
 ): DetailResult {
-  const blocked = blockingDiagnostics(plan);
+  const blocked = blockingDiagnostics(plan, options.allowWebView);
   if (blocked.length > 0) {
     return { fields: {}, chapters: [], pictures: [], diagnostics: blocked };
   }

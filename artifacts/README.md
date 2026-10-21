@@ -42,6 +42,15 @@ Android 模拟器上的 P2 验证证据（2026-10-21）：
 - 公开站点网络探针：6/6 通过，阿巴基猫 `update_history` 第 1 页 70 条，随后进入第一条详情页得到 4 张图片、0 error diagnostics
 - 只访问公开博客；未访问禁漫等成人站点
 
+## `p2-webview.png`
+
+Android 原生 WebView 验证证据（2026-10-21）：
+
+- 同步自检：13/13 通过
+- WebView 探针：2/2 通过；本地 JS 页面异步生成 `.chapter-list`，WebView 等到 marker 后取 outerHTML
+- 漫画柜形态的 `chapterRule` 解析出章节 id `456`，并把 `#p={page:1}` 展开为 `#p=1`
+- 未访问漫画柜在线页面
+
 ## 生成的真实规则
 
 `src/engine/real-rules.generated.ts` 由 `npm run rules:sync` 生成，只包含阿巴基猫公开站点规则，供 Android 网络探针打包使用；生成文件同样只在私有仓库/本地测试使用。

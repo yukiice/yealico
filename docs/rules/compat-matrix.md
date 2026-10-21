@@ -55,6 +55,7 @@
 | `chapterRule` + `{pageFormat}` | Detail | 是 | 真实禁漫规则 | PASS | 待跑 | — | 部分支持 | 2 章节 + 翻页模板 |
 | `GalleryRule` 图片/总页数 | Gallery | 是 | 真实禁漫规则 | PASS | 待跑 | — | 部分支持 | 3 图/3 页；相对图片绝对化 |
 | `GalleryRule` 无 item 的直接 image 集合 | Gallery | 待样本确认 | 漫画柜 1.7 + 合成 | PASS | 待跑 | — | 部分支持 | 默认 src/data-src/data-original；见 P2 |
+| `jsNeededDetail` / WebView | 能力 | 是 | 本地 JS 页面 + 漫画柜 chapterRule | PASS | PASS | — | 部分支持 | DOM 渲染/等待 marker 已通；在线页面未验收 |
 | `post*` | 请求 | 是 | 待补 | 待跑 | 待跑 | — | 待验证 | — |
 | `ignoreDetail` | 导航 | 待样本确认 | 待补 | 待跑 | 待跑 | — | 待验证 | 见 Q24 |
 | `displayMode` | 展示 | 部分 | 待补 | — | — | — | 部分支持 | 首版 text/collection |

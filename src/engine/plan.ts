@@ -67,6 +67,7 @@ const DETAIL_FIELDS = new Set([
   'commentRule',
   'videoRule',
   'photoAlbumLink',
+  'pageReadyMarker',
   'desc',
 ]);
 

@@ -7,6 +7,7 @@ import {
   executePicturePage,
 } from './execute';
 import { expandUrl } from './placeholder';
+import { normalizeSelector } from './plan';
 import type {
   Diagnostic,
   DetailResult,
@@ -31,6 +32,8 @@ export interface RuleRequest {
   headers: Record<string, string>;
   body?: string;
   timeoutMs?: number;
+  /** WebView 适配器在返回 body 前等待的 DOM 标记。 */
+  waitForSelector?: string;
 }
 
 export interface RuleResponse {
@@ -42,6 +45,8 @@ export interface RuleResponse {
 
 export interface RuleFetcher {
   fetch(request: RuleRequest): Promise<RuleResponse>;
+  /** true 表示适配器可执行 JS，load* 不再把 NEEDS_WEBVIEW 当作阻断。 */
+  webview?: boolean;
 }
 
 export type LoadStopReason =
@@ -77,6 +82,7 @@ function requestFor(
   url: string,
   context: PageContext,
   rule: RuleDocument,
+  waitForSelector?: string,
 ): { request: RuleRequest; diagnostics: Diagnostic[] } {
   const expanded = expandUrl(url, context, 'request.url');
   const headers: Record<string, string> = { ...(rule.headers ?? {}) };
@@ -89,9 +95,14 @@ function requestFor(
       method: expanded.method,
       headers,
       body: expanded.body,
+      ...(waitForSelector ? { waitForSelector } : {}),
     },
     diagnostics: expanded.diagnostics,
   };
+}
+
+function waitSelector(value: unknown): string | undefined {
+  return normalizeSelector(value)?.selector;
 }
 
 async function fetchPage(
@@ -133,6 +144,7 @@ async function executeGalleryPage(
   fetcher: RuleFetcher,
   request: RuleRequest,
   context: PageContext,
+  waitForSelector?: string,
 ): Promise<{
   result?: GalleryResult;
   urls: string[];
@@ -151,10 +163,22 @@ async function executeGalleryPage(
     ...context,
     baseUrl: fetched.response.url || request.url,
   };
-  let result = executeGallery(rule, plan, fetched.response.body, firstContext);
+  const executeOptions = { allowWebView: fetcher.webview === true };
+  let result = executeGallery(
+    rule,
+    plan,
+    fetched.response.body,
+    firstContext,
+    executeOptions,
+  );
 
   if (result.secondLevelUrl) {
-    const secondary = requestFor(result.secondLevelUrl, context, rule);
+    const secondary = requestFor(
+      result.secondLevelUrl,
+      context,
+      rule,
+      waitForSelector,
+    );
     diagnostics.push(...secondary.diagnostics);
     if (!secondary.request.url) {
       diagnostics.push({
@@ -172,10 +196,17 @@ async function executeGalleryPage(
       return { urls, diagnostics };
     }
     urls.push(secondary.request.url);
-    result = executeGallery(rule, plan, fetched.response.body, firstContext, {
-      secondaryContent: secondaryPage.response.body,
-      secondaryUrl: secondaryPage.response.url || secondary.request.url,
-    });
+    result = executeGallery(
+      rule,
+      plan,
+      fetched.response.body,
+      firstContext,
+      {
+        ...executeOptions,
+        secondaryContent: secondaryPage.response.body,
+        secondaryUrl: secondaryPage.response.url || secondary.request.url,
+      },
+    );
   }
 
   diagnostics.push(...result.diagnostics);
@@ -316,10 +347,22 @@ export async function loadDetail(
     };
   }
 
+  const allowWebView = fetcher.webview === true;
+  const detailChapterRule = rule.detailRule?.chapterRule as
+    | Record<string, unknown>
+    | undefined;
+  const detailPictureRule = rule.detailRule?.pictureRule as
+    | Record<string, unknown>
+    | undefined;
+  const waitForDetail =
+    waitSelector(rule.detailRule?.pageReadyMarker) ??
+    waitSelector(detailChapterRule?.item) ??
+    waitSelector(detailPictureRule?.item);
   const detailRequest = requestFor(
     detailUrl,
     { ...context, page: 1 },
     rule,
+    waitForDetail,
   );
   diagnostics.push(...detailRequest.diagnostics);
   const detailPage = await fetchPage(fetcher, detailRequest.request);
@@ -346,10 +389,16 @@ export async function loadDetail(
     plan,
     detailPage.response.body,
     detailContext,
+    { allowWebView },
   );
 
   if (result.photoAlbumUrl) {
-    const albumRequest = requestFor(result.photoAlbumUrl, detailContext, rule);
+    const albumRequest = requestFor(
+      result.photoAlbumUrl,
+      detailContext,
+      rule,
+      waitForDetail,
+    );
     diagnostics.push(...albumRequest.diagnostics);
     const albumPage = await fetchPage(fetcher, albumRequest.request);
     diagnostics.push(...albumPage.diagnostics);
@@ -364,6 +413,7 @@ export async function loadDetail(
       detailPage.response.body,
       detailContext,
       {
+        allowWebView,
         secondaryContent: albumPage.response.body,
         secondaryUrl: albumPage.response.url || albumRequest.request.url,
       },
@@ -388,7 +438,12 @@ export async function loadDetail(
   }
 
   for (const link of links) {
-    const linkRequest = requestFor(link, { ...context, page: 1 }, rule);
+    const linkRequest = requestFor(
+      link,
+      { ...context, page: 1 },
+      rule,
+      waitSelector(detailPictureRule?.url),
+    );
     diagnostics.push(...linkRequest.diagnostics);
     const linkPage = await fetchPage(fetcher, linkRequest.request);
     diagnostics.push(...linkPage.diagnostics);
@@ -406,6 +461,7 @@ export async function loadDetail(
         page: 1,
         baseUrl: linkPage.response.url || linkRequest.request.url,
       },
+      { allowWebView },
     );
     diagnostics.push(...extracted.diagnostics);
     for (const picture of extracted.pictures) {
@@ -439,6 +495,9 @@ export async function loadGalleryPages(
   const urls: string[] = [];
   const images: string[] = [];
   const seen = new Set<string>();
+  const waitForGallery =
+    waitSelector(rule.galleryRule?.image) ??
+    waitSelector(rule.galleryRule?.totalPages);
 
   const first = buildGalleryPageUrls(chapterUrlTemplate, undefined, context, 1);
   diagnostics.push(...first.diagnostics);
@@ -465,6 +524,7 @@ export async function loadGalleryPages(
     first.urls[0],
     { ...context, page: 1 },
     rule,
+    waitForGallery,
   );
   diagnostics.push(...firstRequest.diagnostics);
   const firstLoaded = await executeGalleryPage(
@@ -473,6 +533,7 @@ export async function loadGalleryPages(
     fetcher,
     firstRequest.request,
     { ...context, page: 1 },
+    waitForGallery,
   );
   diagnostics.push(...firstLoaded.diagnostics);
   if (!firstLoaded.result) {
@@ -511,6 +572,7 @@ export async function loadGalleryPages(
       pageUrl,
       { ...context, page: index + 1 },
       rule,
+      waitForGallery,
     );
     diagnostics.push(...requestDiagnostics);
     const loaded = await executeGalleryPage(
@@ -519,6 +581,7 @@ export async function loadGalleryPages(
       fetcher,
       request,
       { ...context, page: index + 1 },
+      waitForGallery,
     );
     diagnostics.push(...loaded.diagnostics);
     if (!loaded.result) {

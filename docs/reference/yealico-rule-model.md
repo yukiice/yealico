@@ -58,6 +58,7 @@
 - 通用字段与 ListRule 相同。
 - `totalImages`：详情页图片总数；已接入 `pictureRule.url` 的 `{page:}` 展开。
 - `photoAlbumLink`：二级页面；设置后 `pictureRule` / `chapterRule` / `videoRule` 作用于该链接页（已实现 detail 二级页编排）。
+- `pageReadyMarker`：需要 WebView 的详情页等待标记；Android renderer 等到该 selector 出现后再取 DOM。
 - `tagRule`：`item`、`name`、`url`。
 - `pictureRule`：`item`、`thumbnail`、`url`、`link`。
   - `url` 在定义了 `link` 时，作用于 link 指向的页面。

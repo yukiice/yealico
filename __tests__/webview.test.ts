@@ -1,0 +1,132 @@
+import {
+  buildRoutePlan,
+  loadDetail,
+  loadGalleryPages,
+} from '../src/engine';
+import type { RuleDocument } from '../src/engine';
+import { createWebViewRuleFetcher } from '../src/platform/webviewFetcher';
+import type { WebViewRendererLike } from '../src/platform/webviewFetcher';
+import { runWebViewSelftest } from '../src/platform/webviewSelftest';
+
+function fakeRenderer(
+  body: string,
+  onRender?: (url: string, waitForSelector?: string) => void,
+): WebViewRendererLike {
+  return {
+    async render(url, options) {
+      onRender?.(url, options?.waitForSelector);
+      return { url, body };
+    },
+    async renderHtml(_html, baseUrl) {
+      return { url: baseUrl, body };
+    },
+  };
+}
+
+test('WebView fetcher maps waitForSelector and response', async () => {
+  let requestedWait: string | undefined;
+  const fetcher = createWebViewRuleFetcher(
+    fakeRenderer('<div class="ready"></div>', (_url, wait) => {
+      requestedWait = wait;
+    }),
+  );
+
+  const result = await fetcher.fetch({
+    url: 'https://example.test/detail',
+    method: 'GET',
+    headers: {},
+    waitForSelector: 'div.ready',
+  });
+
+  expect(fetcher.webview).toBe(true);
+  expect(requestedWait).toBe('div.ready');
+  expect(result).toEqual({
+    url: 'https://example.test/detail',
+    status: 200,
+    body: '<div class="ready"></div>',
+  });
+});
+
+test('loadDetail allows NEEDS_WEBVIEW only when the fetcher is a WebView renderer', async () => {
+  const rule: RuleDocument = {
+    name: 'WebView Detail',
+    domain: 'example.test',
+    flags: { jsNeededDetail: true },
+    detailRule: {
+      pageReadyMarker: { selector: 'div.ready' },
+      title: { selector: 'h1', function: 'text' },
+    },
+  };
+  const plan = buildRoutePlan(rule);
+  expect(plan.unsupported.map(item => item.code)).toContain('NEEDS_WEBVIEW');
+
+  let requestedWait: string | undefined;
+  const fetcher = createWebViewRuleFetcher(
+    fakeRenderer(
+      '<div class="ready"></div><h1>Loaded by WebView</h1>',
+      (_url, wait) => {
+        requestedWait = wait;
+      },
+    ),
+  );
+
+  const result = await loadDetail(
+    rule,
+    plan,
+    fetcher,
+    'https://example.test/detail',
+    { baseUrl: 'https://example.test/detail', domain: 'example.test' },
+  );
+
+  expect(requestedWait).toBe('div.ready');
+  expect(result.fields.title).toBe('Loaded by WebView');
+  expect(result.diagnostics).toEqual([]);
+});
+
+test('loadGalleryPages allows NEEDS_WEBVIEW and waits for the image marker', async () => {
+  const rule: RuleDocument = {
+    name: 'WebView Gallery',
+    domain: 'example.test',
+    flags: { jsNeededDetail: true },
+    galleryRule: {
+      totalPages: { selector: 'span.total', function: 'text' },
+      image: { selector: '#manga > img', function: 'attr', param: 'src' },
+    },
+  };
+  const plan = buildRoutePlan(rule);
+  let requestedWait: string | undefined;
+  const fetcher = createWebViewRuleFetcher(
+    fakeRenderer(
+      '<span class="total">1</span><div id="manga"><img src="/img/1.jpg"></div>',
+      (_url, wait) => {
+        requestedWait = wait;
+      },
+    ),
+  );
+
+  const result = await loadGalleryPages(
+    rule,
+    plan,
+    fetcher,
+    'https://example.test/gallery/1',
+    { baseUrl: 'https://example.test/', domain: 'example.test' },
+  );
+
+  expect(requestedWait).toBe('#manga > img');
+  expect(result.images).toEqual(['https://example.test/img/1.jpg']);
+  expect(result.diagnostics).toEqual([]);
+});
+
+test('WebView selftest applies the 漫画柜 chapter rule to rendered HTML', async () => {
+  const renderer = fakeRenderer(`
+    <div class="chapter-list">
+      <ul>
+        <li><a href="/comic/123/456.html" title="Chapter 1">Chapter 1</a></li>
+      </ul>
+    </div>
+  `);
+
+  const results = await runWebViewSelftest(renderer);
+  expect(results).toHaveLength(2);
+  expect(results.every(result => result.ok)).toBe(true);
+});

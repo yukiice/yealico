@@ -2,7 +2,7 @@
 
 面向 Android 的规则驱动图片 / 漫画阅读器，目标是在声明支持的功能范围内运行用户已有的 Yealico 站点规则，而不是要求用户重写扩展。
 
-当前处于 **P2 引擎完成、Android 公开站点 List/Detail 网络探针通过、UI 待开发**。已完成合成 fixture 在 Node 与 Android 模拟器上的一致结果，并已从 macOS Yealico 容器提取 6 条真实规则（含禁漫 2.26、阿巴基猫 2.4）。pages、二级详情/图库、`totalImages` 推导与 RN fetch 适配器已落地；阅读器 UI、登录/Cookie 和完整在线验收仍未完成，不承诺全部规则兼容。
+当前处于 **P2 引擎完成、Android 公开站点 List/Detail 网络探针与 WebView 渲染通过、UI 待开发**。已完成合成 fixture 在 Node 与 Android 模拟器上的一致结果，并已从 macOS Yealico 容器提取 6 条真实规则（含禁漫 2.26、阿巴基猫 2.4）。pages、二级详情/图库、`totalImages` 推导、RN fetch 适配器和原生 WebView renderer 已落地；阅读器 UI、登录/Cookie 和漫画柜在线验收仍未完成，不承诺全部规则兼容。
 
 ## 技术基线
 
@@ -51,6 +51,7 @@ JAVA_HOME=/path/to/jdk-17 ./gradlew assembleDebug --no-daemon
 
 - 运行 5 组合成 fixture（列表、图库、JSON、不支持能力、QR 载荷）+ pages/totalImages，显示 13 项 PASS/FAIL。
 - 手动“真实规则网络探针”：用阿巴基猫公开规则走 `loadListPages` → 第一条 `loadDetail`，只访问公开博客。
+- 手动“WebView 规则探针”：本地 JS 页面等待 `.chapter-list`，再用漫画柜形态的 `chapterRule` 解析。
 - 显示 20 次重复的解析耗时基线。
 - 明确标注“合成 fixture，仅验证规则引擎；网络探针不代表全部真实站点兼容”。
 
@@ -61,7 +62,7 @@ JAVA_HOME=/path/to/jdk-17 ./gradlew assembleDebug --no-daemon
 ```
 android/                 Android 工程（仅 Android；未生成 ios/）
 src/engine/              规则模型、RoutePlan、占位符、选择器、执行器、URL
-src/platform/            RN fetch 适配器、公开站点网络探针
+src/platform/            RN fetch 适配器、原生 WebView renderer、探针
 docs/reference/          官方规则语义提炼
 docs/rules/samples/      合成 fixture（唯一来源）
 docs/rules/open-questions.md  语义待确认项
@@ -86,8 +87,8 @@ docs/architecture/       阶段基线与运行时记录
 ## 已知限制
 
 - UI：站点列表、页面选择、详情、阅读器、翻页尚未实现。
-- WebView、登录、consent、Cookie 共享、图片请求头尚未实现；RN fetch 已保留 `credentials: include` 入口。
-- Android 只验证了阿巴基猫公开 List；禁漫等真实 Detail/Gallery 未在 Android 执行。
+- WebView 已能渲染并取 DOM，但还没有产品化阅读器/导航；登录、consent、Cookie 共享、图片请求头尚未实现。
+- Android 验证了阿巴基猫公开 List/Detail 和漫画柜形态的本地 JS 章节页；漫画柜在线页未验收，禁漫等真实 Detail/Gallery 未在 Android 执行。
 - QR 导入：已识别 Yealico `v2:` 前缀与 64 字节 opaque 载荷，但未解码；当前只支持 URL / 原始 JSON 的解析层，相机扫码 UI 未实现。详见 [QR 导入格式](docs/rules/qr-import.md)。
 - `+` 多 JSONPath、`$root` 完整语法、数学表达式 replacement、GBK/Big5 尚未实现或验证。
 - 真实规则来自作者 `wc3818290`，只在私有仓库/本地测试使用；不要公开再分发。
