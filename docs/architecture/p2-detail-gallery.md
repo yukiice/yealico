@@ -160,6 +160,20 @@ RN/Android 侧由 `createFetchRuleFetcher` 适配：
 - 证据：`artifacts/p2-aba-detail.png`。
 - 未在 Android 上执行禁漫 Detail/Gallery，也未做登录/Cookie 在线验收。
 
+### 候选真实规则可用性（2026-10-21）
+
+当前 6 条提取规则中，只有阿巴基猫适合直接做公开在线验收；其余候选都有明确缺口：
+
+| 站点 | 章节/详情 | 图库 | 主要缺口 | 结论 |
+| --- | --- | --- | --- | --- |
+| 漫画柜 1.7 | `chapterRule` 完整 | `totalPages` + `image`，但无 `item` | `flags.jsNeededDetail`，详情需要 WebView；`GalleryRule` 是直接图片集合形态，当前执行器要求 `item` | 需先补 WebView / 直接 image 集合语义 |
+| 拷貝漫畫 2.15 | `chapterRule` 有 item/idCode/title，但 **无 url** | `item` + `image`，使用 class 属性转换 | 章节 URL 无法生成；图库规则依赖站点 class 结构 | 只适合离线结构测试 |
+| M-ngabz 2.1 | `chapterRule` + `secondLevelPageUrl` | `item` + `image`，但无 `totalPages` | 图库分页只能按单页验证；站点不适合作为公开验收样本 | 可做合成二级页测试 |
+| 禁漫 2.26 | `chapterRule` 完整 | `totalPages` + `item` + `image` 完整 | 成人站点，不做未授权在线抓取 | 仅合成页验证 |
+| 阿巴基猫 2.4 | `pictureRule` 直接取图，无 chapter | 无 GalleryRule | 没有章节/图库链路 | 已做真实在线 List/Detail 验收 |
+
+因此不能把“漫画柜/拷貝漫畫有 chapterRule”直接当成“章节/图库已兼容”；下一步若要做真实章节链路，优先补漫画柜的 WebView 和直接 image 集合语义，或继续使用合成页验证执行器。
+
 ## 3. 真实规则暴露并已修复的兼容点
 
 | 问题 | 处理 |
