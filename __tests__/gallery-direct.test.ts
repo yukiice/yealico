@@ -84,11 +84,16 @@ test('site-6 漫画柜 direct image shape works offline', () => {
     domain: fullRule.domain,
     galleryRule: fullRule.galleryRule,
   };
+  // 现行章节页：图片在 #mangaBox img.mangaFile，总页数是 #pageSelect 最后一个 option 的 value。
+  const options = Array.from(
+    { length: 12 },
+    (_, index) => `<option value="${index + 1}">第${index + 1}页</option>`,
+  ).join('');
   const html = `
-    <span class="manga-page">第 3 页/12P</span>
-    <div id="manga">
-      <img src="/img/page-1.jpg">
-      <img src="/img/page-2.jpg">
+    <select id="pageSelect">${options}</select>
+    <div id="mangaBox">
+      <img class="mangaFile" src="/img/page-1.jpg">
+      <img class="mangaFile" src="/img/page-2.jpg">
     </div>
   `;
 

@@ -16,7 +16,7 @@
 | `synthetic04` | 合成：不支持能力 | Detail | `jsNeededDetail`、未知函数 | 是 | `samples/synthetic-unsupported/expected-plan.json` | API36 PASS（7/7） | 不适用 | 已支持 | 仅验证诊断，不执行页面 |
 | `real-aba-2.4` | 阿巴基猫（作者自建 WordPress） | List/Detail | 静态列表、text、pictureRule | 是 | SQLite 提取 + `List: recently` / `buildPagePlan` / `loadDetail` 测试 | API36 网络探针 PASS（列表 70 条，详情 4 图） | 真实页 118 条（117 链接 + 1 空段） | 部分支持 | search/waterfall 未实现；见 [SQLite](yealico-macos-sqlite.md) |
 | `real-jm-2.26` | 禁漫天堂（作者规则） | List/Detail/Gallery | CSS、chapterRule、tagRule、gallery、pages | 是 | SQLite 提取；RoutePlan `static=true`；29 页可选；detail 2 章节 / gallery 3 图 3 页（合成页） | 待跑 | 未抓取（成人站点，不做未授权抓取） | 部分支持 | search/series/displayMode tag 未实现 |
-| `real-manhuagui-1.7` | 漫画柜（公开页） | Detail/Gallery | WebView、chapterRule、直接 image 集合 | 是 | 真实规则 + 合成/在线探针 | API36 在线 PASS（650 章 / 首图 / 阅读器出图） | 在线详情/章节/首图已取 | 部分支持 | 图片 selector 已改为 `#mangaBox img.mangaFile, #manga>img` 双分组；`totalPages` 标记缺失，多页章节只加载第一页 |
+| `real-manhuagui-1.7` | 漫画柜（公开页） | Detail/Gallery | WebView、chapterRule、直接 image 集合 | 是 | 真实规则 + 合成/在线探针 | API36 在线 PASS（650 章 / 18 页 / 阅读器出图） | 在线详情/章节/多页已取 | 部分支持 | 图片选择器为 `#mangaBox img.mangaFile, #manga>img`；总页数读 `#pageSelect option:last-child` |
 | `real-pending-a` | 真实样本 A | 待补 | 待补 | 待补 | 待补 | 待补 | 待补 | 待验证 | 需要用户提供规则 JSON 与详情 URL |
 | `real-pending-b` | 真实样本 B | 待补 | 待补 | 待补 | 待补 | 待补 | 待补 | 待验证 | 同上 |
 | `real-pending-c` | 真实样本 C | 待补 | 待补 | 待补 | 待补 | 待补 | 待补 | 待验证 | 同上 |

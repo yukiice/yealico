@@ -162,6 +162,13 @@ test('漫画柜 probe follows detail chapters and first gallery page', async () 
   };
 
   const results = await runManhuaguiProbe(renderer);
-  expect(results).toHaveLength(5);
+  expect(results).toHaveLength(6);
   expect(results.every(result => result.ok)).toBe(true);
+
+  // 新增的 DOM 结构统计应能识别旧布局（#manga>img）与分页标记。
+  const domStats = results.find(
+    result => result.name === 'manhuagui: gallery DOM stats',
+  );
+  expect(domStats?.detail).toContain('legacyImg=1');
+  expect(domStats?.detail).toContain('mangaPage=1');
 });

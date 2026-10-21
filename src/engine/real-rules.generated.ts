@@ -454,9 +454,9 @@ export const MANHUAGUI_RULE_JSON = {
     },
     "gallery": {
       "totalPages": {
-        "regex": "/(\\d+)P",
-        "function": "text",
-        "selector": "span.manga-page"
+        "selector": "#pageSelect option:last-child",
+        "function": "attr",
+        "param": "value"
       },
       "image": {
         "selector": "#mangaBox img.mangaFile, #manga>img",

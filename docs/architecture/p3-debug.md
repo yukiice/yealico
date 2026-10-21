@@ -61,7 +61,7 @@ path 和 hash 一律保留——`#p=7` 这类页码正是定位问题所需的�
 - 能力摘要、阻断项只取 `severity === 'error'`；
 - 会话上限与“最新在前”、`list()` 返回副本、`clear()`。
 
-当前整体：**21 个 suite、106 个用例**；`npm run typecheck`、`npm run lint` 通过。
+当前整体：**23 个 suite、110 个用例**；`npm run typecheck`、`npm run lint` 通过。
 
 ## 5. 还没做
 

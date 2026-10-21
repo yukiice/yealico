@@ -1,19 +1,63 @@
-import {
-  buildRoutePlan,
-  loadDetail,
-  loadGalleryPages,
-  toRuleDocument,
-} from '../engine';
+import { buildRoutePlan, loadDetail, loadGalleryPages, toRuleDocument } from '../engine';
 import type { Diagnostic, ExtractedYealicoSite } from '../engine';
 import type { SelftestResult } from '../engine/selftest';
 import { MANHUAGUI_RULE_JSON } from '../engine/real-rules.generated';
 import { createWebViewRuleFetcher } from './webviewFetcher';
 import type { WebViewRendererLike } from './webviewFetcher';
+import { selectAll } from 'css-select';
+import type { AnyNode } from 'domhandler';
+import { getOuterHTML } from 'domutils';
+import { parseDocument } from 'htmlparser2';
 
 const MANHUAGUI_DOMAIN = 'www.manhuagui.com';
 const MANHUAGUI_DETAIL_URL = 'https://www.manhuagui.com/comic/1128/';
 const MANHUAGUI_GALLERY_SELECTOR =
   '#mangaBox img.mangaFile, #manga>img';
+
+/** 分页相关候选选择器。页面改版时先跑探针看命中数，再改规则。 */
+const DOM_PROBES: Array<[string, string]> = [
+  ['img', 'img'],
+  ['mangaBox', '#mangaBox'],
+  ['mangaFile', '#mangaBox img.mangaFile'],
+  ['legacyImg', '#manga>img'],
+  ['mangaPage', '.manga-page'],
+  ['select', 'select'],
+  ['option', 'option'],
+  ['pageLink', 'a[href*="#p="]'],
+  ['pageClass', '[class*="page"]'],
+];
+
+/**
+ * 统计章节页 DOM 的分页候选结构，用于定位规则选择器漂移。
+ *
+ * 只输出命中数与几个片段，不回传整页 HTML。
+ */
+export function describeGalleryDom(body: string): string {
+  const doc = parseDocument(body);
+  const counts = DOM_PROBES.map(([label, selector]) => {
+    let count = 0;
+    try {
+      count = selectAll(selector, doc).length;
+    } catch {
+      count = -1;
+    }
+    return `${label}=${count}`;
+  });
+  let samples: string[] = [];
+  try {
+    const sampleSelectors = ['select', '#pagination', '[class*="page"]'];
+    samples = sampleSelectors.flatMap(selector =>
+      selectAll(selector, doc)
+        .slice(0, 1)
+        .map((node: AnyNode) =>
+          getOuterHTML(node).replace(/\s+/g, ' ').slice(0, 160),
+        ),
+    );
+  } catch {
+    samples = [];
+  }
+  return [...counts, ...samples].join(' | ');
+}
 
 function errorText(diagnostics: Diagnostic[]): string {
   const errors = diagnostics.filter(item => item.severity === 'error');
@@ -90,6 +134,19 @@ export async function runManhuaguiProbe(
     gallery?.totalPages && gallery.totalPages > 0
       ? gallery.totalPages
       : 'unknown';
+  let domStats = 'chapter URL missing';
+  if (chapter?.url) {
+    try {
+      const rendered = await renderer.render(chapter.url, {
+        timeoutMs: 20_000,
+      });
+      domStats = describeGalleryDom(rendered.body);
+    } catch (error) {
+      domStats = `render failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`;
+    }
+  }
 
   return [
     {
@@ -117,6 +174,11 @@ export async function runManhuaguiProbe(
       detail: `images=${gallery?.images.length ?? 0}, totalPages=${galleryTotalPages}, errors=${errorText(
         galleryDiagnostics,
       )}`,
+    },
+    {
+      name: 'manhuagui: gallery DOM stats',
+      ok: domStats.startsWith('img='),
+      detail: domStats,
     },
     {
       name: 'manhuagui: no error diagnostics',

@@ -92,11 +92,11 @@ ReaderScreen
 - 端到端：`executeDetail` 产出 `chapter.url` 模板 → `loadGalleryPages` 展开 `#p=1` / `#p=2` → 两张图按顺序去重；
 - 进度：`idCode` 优先于 URL、旧格式迁移、脏数据丢弃、envelope 往返、upsert 去重、无变化不写、缺稳定 ID 不存、删站点/删章节、单站点上限裁剪（时间戳相同时按写入顺序）、章节行文案。
 
-当前整体：**21 个 suite、106 个用例**；`npm run typecheck`、`npm run lint` 通过。
+当前整体：**23 个 suite、110 个用例**；`npm run typecheck`、`npm run lint` 通过。
 
 ## 4. 还没做
 
 - 章节连读、章节间跳转；
 - 连续滚动 / 双页模式；
-- 阅读进度已在 Android 上验证写入与重启恢复；但受 `totalPages` 缺失限制，只验到 `index=0` 的单图章节，多图位次恢复仍缺证据；
-- 多页章节只加载第一页（`span.manga-page` 不存在）；
+- 进度已在 Android 上验证：翻到第 3 张 → 详情显示「已读 3 / 4 张」→ 冷重启后重进章节直接停在 `3 / 4` 并提示已恢复；
+- 图片磁盘缓存与内存上限。
