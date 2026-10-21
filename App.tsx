@@ -23,8 +23,10 @@ import { runNetworkSelftest } from './src/platform/networkSelftest';
 import { createNativeWebViewRenderer } from './src/platform/nativeWebView';
 import { runManhuaguiProbe } from './src/platform/manhuaguiProbe';
 import { runWebViewSelftest } from './src/platform/webviewSelftest';
+import { SiteManager } from './src/app/SiteManager';
 
 function App(): React.JSX.Element {
+  const [screen, setScreen] = useState<'sites' | 'selftest'>('sites');
   const results = useMemo(() => runSelftest(), []);
   const benchmarks = useMemo(() => runBenchmark(), []);
   const fetcher = useMemo(
@@ -109,17 +111,45 @@ function App(): React.JSX.Element {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" />
-      <Text style={styles.title}>Yealico 自检</Text>
-      <Text
-        testID="selftest-summary"
-        style={[styles.summary, failed === 0 ? styles.pass : styles.fail]}>
-        {failed === 0
-          ? `全部通过 (${results.length})`
-          : `失败 ${failed}/${results.length}`}
-      </Text>
-      <Text style={styles.note}>
-        合成 fixture 验证规则引擎；网络探针只访问公开博客，不代表全部真实站点兼容。
-      </Text>
+      <Text style={styles.title}>Yealico</Text>
+      <View style={styles.tabs}>
+        <Pressable
+          onPress={() => setScreen('sites')}
+          style={[styles.tab, screen === 'sites' && styles.tabActive]}>
+          <Text
+            style={[
+              styles.tabText,
+              screen === 'sites' && styles.tabTextActive,
+            ]}>
+            站点
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setScreen('selftest')}
+          style={[styles.tab, screen === 'selftest' && styles.tabActive]}>
+          <Text
+            style={[
+              styles.tabText,
+              screen === 'selftest' && styles.tabTextActive,
+            ]}>
+            自检
+          </Text>
+        </Pressable>
+      </View>
+      {screen === 'sites' ? (
+        <SiteManager />
+      ) : (
+        <>
+          <Text
+            testID="selftest-summary"
+            style={[styles.summary, failed === 0 ? styles.pass : styles.fail]}>
+            {failed === 0
+              ? `全部通过 (${results.length})`
+              : `失败 ${failed}/${results.length}`}
+          </Text>
+          <Text style={styles.note}>
+            合成 fixture 验证规则引擎；网络探针只访问公开博客，不代表全部真实站点兼容。
+          </Text>
       <Pressable
         testID="network-selftest"
         onPress={runNetwork}
@@ -180,7 +210,7 @@ function App(): React.JSX.Element {
             : `漫画柜探针失败 ${manhuaguiFailed}/${manhuaguiResults.length}`}
         </Text>
       )}
-      <ScrollView contentContainerStyle={styles.list}>
+          <ScrollView contentContainerStyle={styles.list}>
         {manhuaguiResults.map(result => (
           <View key={result.name} style={styles.row}>
             <Text style={[styles.name, result.ok ? styles.pass : styles.fail]}>
@@ -221,7 +251,9 @@ function App(): React.JSX.Element {
           </Text>
         ))}
         <Text style={styles.note}>内存未测量；真实页面性能待 P1 探针。</Text>
-      </ScrollView>
+          </ScrollView>
+        </>
+      )}
     </View>
   );
 }
@@ -240,6 +272,28 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 8,
+  },
+  tabs: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  tab: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 5,
+    marginRight: 8,
+    backgroundColor: '#1e293b',
+  },
+  tabActive: {
+    backgroundColor: '#1d4ed8',
+  },
+  tabText: {
+    color: '#94a3b8',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  tabTextActive: {
+    color: '#eff6ff',
   },
   summary: {
     fontSize: 16,

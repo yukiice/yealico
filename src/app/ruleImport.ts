@@ -256,6 +256,10 @@ export interface StoredSite extends ImportedRuleSite {
 export class SiteRepository {
   private sites: StoredSite[] = [];
 
+  constructor(initial: StoredSite[] = []) {
+    this.sites = [...initial];
+  }
+
   list(): StoredSite[] {
     return [...this.sites];
   }

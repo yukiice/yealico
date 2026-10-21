@@ -2,7 +2,7 @@
 
 面向 Android 的规则驱动图片 / 漫画阅读器，目标是在声明支持的功能范围内运行用户已有的 Yealico 站点规则，而不是要求用户重写扩展。
 
-当前处于 **P2 引擎完成、Android 公开站点 List/Detail + 漫画柜在线 Detail/Gallery + WebView 渲染通过、UI 待开发**。已完成合成 fixture 在 Node 与 Android 模拟器上的一致结果，并已从 macOS Yealico 容器提取 6 条真实规则（含禁漫 2.26、阿巴基猫 2.4）。pages、二级详情/图库、`totalImages` 推导、RN fetch 适配器、原生 WebView renderer 和漫画柜 selector 迁移已落地；阅读器 UI、登录/Cookie 仍未完成，不承诺全部规则兼容。
+当前处于 **P2 引擎完成、P3 站点导入/管理接入中**：Android 公开站点 List/Detail、漫画柜在线 Detail/Gallery、WebView、站点导入 UI 和本地持久化已跑通；阅读器 UI、登录/Cookie 仍未完成，不承诺全部规则兼容。
 
 站点导入领域层（JSON/URL/QR raw JSON、去重、删除）已完成；相机扫码和 Yealico QR v2 解码是**必须但延后**的功能，当前不能用阿巴基猫二维码直接添加站点。
 
@@ -89,7 +89,7 @@ docs/architecture/       阶段基线与运行时记录
 
 ## 已知限制
 
-- UI：站点列表、页面选择、详情、阅读器、翻页尚未实现。
+- UI：站点导入/列表/删除已实现；页面选择、详情、阅读器、翻页尚未实现。
 - WebView 已能渲染并取 DOM，但还没有产品化阅读器/导航；登录、consent、Cookie 共享、图片请求头尚未实现。
 - Android 验证了阿巴基猫公开 List/Detail、漫画柜在线 Detail/首图；分页/阅读器未接，禁漫等真实 Detail/Gallery 未在 Android 执行。
 - QR 导入：JSON/URL/QR raw JSON 已有导入领域层；Yealico `v2:` 仍只识别、未解码，相机扫码 UI 未实现。二维码是必须功能，验收见 [P3 站点导入](docs/architecture/p3-site-import.md)。

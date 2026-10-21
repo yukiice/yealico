@@ -13,6 +13,6 @@ test('renders P1 selftest summary', async () => {
     tree = ReactTestRenderer.create(<App />);
   });
   const output = JSON.stringify(tree?.toJSON());
-  expect(output).toContain('Yealico 自检');
-  expect(output).toContain('全部通过');
+  expect(output).toContain('Yealico');
+  expect(output).toContain('站点管理');
 });
