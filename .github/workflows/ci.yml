@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test -- --runInBand
+
+      # 生成文件是提交进仓库的，规则或 fixture 改动后忘记重新生成会让
+      # Node/Hermes 跑在两套数据上。这里直接校验工作区没有差异。
+      - name: Generated fixtures are in sync
+        run: |
+          npm run fixtures
+          npm run rules:sync
+          git diff --exit-code -- src/engine/fixtures.generated.ts src/engine/real-rules.generated.ts
