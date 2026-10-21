@@ -17,6 +17,7 @@ import type { Diagnostic } from '../engine';
 import type { StoredSite } from './ruleImport';
 import { createFetchRuleFetcher } from '../platform/ruleFetcher';
 import { createSiteStorage } from '../platform/siteStorage';
+import { SiteWorkspace } from './SiteWorkspace';
 
 function diagnosticText(diagnostics: Diagnostic[]): string {
   const errors = diagnostics.filter(item => item.severity === 'error');
@@ -41,6 +42,7 @@ export function SiteManager(): React.JSX.Element {
   const [message, setMessage] = useState('粘贴 Yealico 规则 JSON 或规则 URL');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedSite, setSelectedSite] = useState<StoredSite | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -127,6 +129,15 @@ export function SiteManager(): React.JSX.Element {
     setMessage('已删除站点');
   };
 
+  if (selectedSite) {
+    return (
+      <SiteWorkspace
+        site={selectedSite}
+        onBack={() => setSelectedSite(null)}
+      />
+    );
+  }
+
   return (
     <View style={styles.root}>
       <Text style={styles.title}>站点管理</Text>
@@ -160,12 +171,14 @@ export function SiteManager(): React.JSX.Element {
         <ScrollView contentContainerStyle={styles.list}>
           {sites.map(site => (
             <View key={site.id} style={styles.siteRow}>
-              <View style={styles.siteText}>
+              <Pressable
+                onPress={() => setSelectedSite(site)}
+                style={styles.siteText}>
                 <Text style={styles.siteName}>{site.name}</Text>
                 <Text style={styles.siteMeta}>
                   {site.domain} · {site.source}
                 </Text>
-              </View>
+              </Pressable>
               <Pressable
                 onPress={async () => {
                   await removeSite(site.id);

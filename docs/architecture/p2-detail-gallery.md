@@ -233,7 +233,7 @@ Android 侧另有原生 WebView renderer：
 - `__tests__/real-rules.test.ts`：禁漫页面选择、拷貝漫畫 `photoAlbumLink`、M-ngabz 无 selector 的 `secondLevelPageUrl`。
 - `__tests__/gallery-direct.test.ts`：无 `item` 的直接 image 集合，以及漫画柜 1.7 规则的离线页。
 - `__tests__/webview.test.ts`：WebView renderer 的 waitForSelector、`loadDetail`/`loadGalleryPages` 的 NEEDS_WEBVIEW 放行、漫画柜章节规则。
-- 当前 Jest：**15 个 suite、67 个用例**；`npm run typecheck`、`npm run lint` 通过。
+- 当前 Jest：**16 个 suite、70 个用例**；`npm run typecheck`、`npm run lint` 通过。
 - `__tests__/rule-fetcher.test.ts`：fetch 转换、Headers、超时。
 - `__tests__/network-selftest.test.ts`：真实阿巴基猫规则 + mock fetcher 的 `loadListPages`。
 
