@@ -23,6 +23,7 @@ import {
 } from './readingProgress';
 import { createFetchRuleFetcher } from '../platform/ruleFetcher';
 import { describeScanError, scanQrCode } from '../platform/qrScanner';
+import { friendlyDiagnostic } from './diagnostics';
 import { createSiteStorage } from '../platform/siteStorage';
 import { SiteWorkspace } from './SiteWorkspace';
 
@@ -33,7 +34,7 @@ function diagnosticText(diagnostics: Diagnostic[]): string {
   }
   return errors
     .slice(0, 3)
-    .map(item => `${item.code}: ${item.detail ?? item.fieldPath}`)
+    .map(friendlyDiagnostic)
     .join('\n');
 }
 
