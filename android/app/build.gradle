@@ -111,6 +111,10 @@ dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
+    // 系统扫码 UI（Google Code Scanner）：不申请 CAMERA 权限，
+    // 未安装 Play Services 的设备由 JS 侧给粘贴/URL 回退。
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {

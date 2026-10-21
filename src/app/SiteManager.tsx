@@ -9,18 +9,20 @@ import {
 } from 'react-native';
 
 import {
+  importRuleFromQr,
   importRuleFromUrl,
   importRuleText,
   SiteRepository,
 } from './ruleImport';
 import type { Diagnostic } from '../engine';
-import type { StoredSite } from './ruleImport';
+import type { RuleImportResult, StoredSite } from './ruleImport';
 import {
   parseSiteLibrary,
   ReadingProgressRepository,
   serializeSiteLibrary,
 } from './readingProgress';
 import { createFetchRuleFetcher } from '../platform/ruleFetcher';
+import { describeScanError, scanQrCode } from '../platform/qrScanner';
 import { createSiteStorage } from '../platform/siteStorage';
 import { SiteWorkspace } from './SiteWorkspace';
 
@@ -108,6 +110,22 @@ export function SiteManager(): React.JSX.Element {
     };
   }, [persist, progress]);
 
+  const applyResult = async (result: RuleImportResult): Promise<void> => {
+    if (!result.site) {
+      setMessage(diagnosticText(result.diagnostics));
+      return;
+    }
+    const added = repository.current.add(result.site);
+    if (!added.site) {
+      setMessage(diagnosticText(added.diagnostics));
+      return;
+    }
+    await persist();
+    setSites(repository.current.list());
+    setInput('');
+    setMessage(`已导入 ${added.site.name} (${added.site.domain})`);
+  };
+
   const importRule = async (): Promise<void> => {
     const payload = input.trim();
     if (!payload) {
@@ -119,25 +137,31 @@ export function SiteManager(): React.JSX.Element {
       const result = /^https?:\/\//i.test(payload)
         ? await importRuleFromUrl(payload, fetcher)
         : importRuleText(payload);
-      if (!result.site) {
-        setMessage(diagnosticText(result.diagnostics));
-        return;
-      }
-      const added = repository.current.add(result.site);
-      if (!added.site) {
-        setMessage(diagnosticText(added.diagnostics));
-        return;
-      }
-      await persist();
-      setSites(repository.current.list());
-      setInput('');
-      setMessage(
-        `已导入 ${added.site.name} (${added.site.domain})`,
-      );
+      await applyResult(result);
     } catch (error) {
       setMessage(
         `导入失败: ${error instanceof Error ? error.message : String(error)}`,
       );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * 扫码导入：相机由系统扫码 UI 提供，这里只负责把 payload
+   * 送回与粘贴/URL 相同的导入链路。
+   */
+  const scanRule = async (): Promise<void> => {
+    if (busy) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const payload = await scanQrCode();
+      const result = await importRuleFromQr(payload, fetcher);
+      await applyResult(result);
+    } catch (error) {
+      setMessage(describeScanError(error));
     } finally {
       setBusy(false);
     }
@@ -167,8 +191,8 @@ export function SiteManager(): React.JSX.Element {
     <View style={styles.root}>
       <Text style={styles.title}>站点管理</Text>
       <Text style={styles.note}>
-        支持 Yealico 提取规则 JSON 和规则 URL。Yealico v2 二维码尚未解码，
-        扫描功能会在后续接入同一导入链路。
+        支持规则 JSON、规则 URL 和二维码。Yealico v2 二维码仍未解码，
+        扫码后会给出粘贴/URL 回退提示。
       </Text>
       <TextInput
         testID="rule-import-input"
@@ -180,13 +204,22 @@ export function SiteManager(): React.JSX.Element {
         placeholderTextColor="#64748b"
         style={styles.input}
       />
-      <Pressable
-        testID="rule-import-submit"
-        onPress={importRule}
-        disabled={busy}
-        style={[styles.button, busy && styles.buttonDisabled]}>
-        <Text style={styles.buttonText}>{busy ? '导入中…' : '导入规则'}</Text>
-      </Pressable>
+      <View style={styles.actions}>
+        <Pressable
+          testID="rule-import-submit"
+          onPress={importRule}
+          disabled={busy}
+          style={[styles.button, busy && styles.buttonDisabled]}>
+          <Text style={styles.buttonText}>{busy ? '导入中…' : '导入规则'}</Text>
+        </Pressable>
+        <Pressable
+          testID="rule-scan"
+          onPress={scanRule}
+          disabled={busy}
+          style={[styles.button, styles.scanButton, busy && styles.buttonDisabled]}>
+          <Text style={styles.buttonText}>扫码导入</Text>
+        </Pressable>
+      </View>
       <Text style={styles.message}>{message}</Text>
       {loading ? (
         <Text style={styles.note}>正在读取本地站点…</Text>
@@ -254,6 +287,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginBottom: 8,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  scanButton: {
+    backgroundColor: '#0f766e',
   },
   buttonDisabled: {
     backgroundColor: '#334155',
