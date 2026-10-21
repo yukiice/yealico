@@ -109,7 +109,7 @@ Node 侧结果（2026-10-20）：
 
 - lint：0 error / 0 warning。
 - typecheck：通过（应用配置 + 测试配置）。
-- Jest：18 个 suite、88 个用例全部通过（含站点页面/列表/详情 URL/章节阅读/进度持久化）。
+- Jest：19 个 suite、98 个用例全部通过（含站点页面/列表/详情 URL/章节阅读/进度持久化/调试页）。
 - 覆盖：golden fixture、分页/URL 占位符、函数链、regex、受限 JSONPath、QR、真实 `List: recently`、Detail/Gallery、chapter URL 模板、attr fallback、分页编排与去重、pages、二级页、totalImages、直接 image 集合、WebView、fetch 超时与网络探针。
 
 真实规则验证（2026-10-20）：

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -15,6 +15,8 @@ import {
 } from '../engine';
 import type { ExtractItem, RuleDocument } from '../engine';
 import type { StoredSite } from './ruleImport';
+import { DebugScreen } from './DebugScreen';
+import { DebugSession } from './debugReport';
 import { DetailScreen } from './DetailScreen';
 import { errorText } from './diagnostics';
 import type { ReadingProgressRepository } from './readingProgress';
@@ -52,6 +54,8 @@ export function SiteWorkspace({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedItem, setSelectedItem] = useState<ExtractItem | null>(null);
+  const [debugOpen, setDebugOpen] = useState(false);
+  const debug = useRef(new DebugSession()).current;
 
   const built = useMemo(() => {
     if (pages.length === 0) {
@@ -95,6 +99,13 @@ export function SiteWorkspace({
             cover: item.cover,
           })),
         );
+        debug.record({
+          stage: 'list',
+          label: pages.length > 0 ? `页面 ${(page ?? 0) + 1}` : undefined,
+          counts: { items: result.items.length, pages: result.pages },
+          diagnostics,
+          urls: result.urls,
+        });
       })
       .catch(cause => {
         if (!cancelled) {
@@ -110,7 +121,18 @@ export function SiteWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [built, fetcher, site.domain]);
+  }, [built, debug, fetcher, page, pages.length, site.domain]);
+
+  if (debugOpen) {
+    return (
+      <DebugScreen
+        site={site}
+        plan={built.plan}
+        debug={debug}
+        onBack={() => setDebugOpen(false)}
+      />
+    );
+  }
 
   if (selectedItem) {
     return (
@@ -122,6 +144,7 @@ export function SiteWorkspace({
         plan={built.plan}
         item={selectedItem}
         progress={progress}
+        debug={debug}
         onBack={() => setSelectedItem(null)}
       />
     );
@@ -132,8 +155,15 @@ export function SiteWorkspace({
       <Pressable onPress={onBack} style={styles.backButton}>
         <Text style={styles.backText}>← 返回站点</Text>
       </Pressable>
-      <Text style={styles.title}>{site.name}</Text>
-      <Text style={styles.meta}>{site.domain}</Text>
+      <View style={styles.headerRow}>
+        <View style={styles.headerText}>
+          <Text style={styles.title}>{site.name}</Text>
+          <Text style={styles.meta}>{site.domain}</Text>
+        </View>
+        <Pressable onPress={() => setDebugOpen(true)} style={styles.debugButton}>
+          <Text style={styles.debugButtonText}>调试</Text>
+        </Pressable>
+      </View>
       {lastRead ? (
         <Text style={styles.lastRead}>
           {`上次读到《${lastRead.chapterTitle ?? lastRead.chapterKey}》第 ${
@@ -212,6 +242,24 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     fontSize: 20,
     fontWeight: '700',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  headerText: {
+    flex: 1,
+  },
+  debugButton: {
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginTop: 4,
+  },
+  debugButtonText: {
+    color: '#e2e8f0',
+    fontSize: 11,
   },
   meta: {
     color: '#94a3b8',

@@ -17,6 +17,7 @@ import type {
   DetailResult,
 } from '../engine';
 import { errorText } from './diagnostics';
+import type { DebugSession } from './debugReport';
 import { progressKeyFor } from './readingProgress';
 import type { ReadingProgressRepository } from './readingProgress';
 import { ReaderScreen } from './ReaderScreen';
@@ -63,6 +64,7 @@ export function DetailScreen({
   plan,
   item,
   progress,
+  debug,
   onBack,
 }: {
   siteName: string;
@@ -72,6 +74,7 @@ export function DetailScreen({
   plan: RoutePlan;
   item: ExtractItem;
   progress: ReadingProgressRepository;
+  debug: DebugSession;
   onBack: () => void;
 }): React.JSX.Element {
   const fetcher = useMemo(() => createRuleFetcherForPlan(plan), [plan]);
@@ -104,6 +107,17 @@ export function DetailScreen({
           return;
         }
         setDetail(result);
+        debug.record({
+          stage: 'detail',
+          label: result.fields.title ?? item.title,
+          counts: {
+            chapters: result.chapters.length,
+            pictures: result.pictures.length,
+            urls: result.urls.length,
+          },
+          diagnostics: result.diagnostics,
+          urls: result.urls,
+        });
         const message = errorText(result.diagnostics);
         if (message) {
           setError(message);
@@ -123,7 +137,7 @@ export function DetailScreen({
     return () => {
       cancelled = true;
     };
-  }, [detailUrl, domain, fetcher, plan, rule]);
+  }, [debug, detailUrl, domain, fetcher, item, plan, rule]);
 
   if (chapter) {
     return (
@@ -135,6 +149,7 @@ export function DetailScreen({
         plan={plan}
         chapter={chapter}
         progress={progress}
+        debug={debug}
         onBack={() => setChapter(null)}
       />
     );

@@ -92,7 +92,7 @@ ReaderScreen
 - 端到端：`executeDetail` 产出 `chapter.url` 模板 → `loadGalleryPages` 展开 `#p=1` / `#p=2` → 两张图按顺序去重；
 - 进度：`idCode` 优先于 URL、旧格式迁移、脏数据丢弃、envelope 往返、upsert 去重、无变化不写、缺稳定 ID 不存、删站点/删章节、单站点上限裁剪（时间戳相同时按写入顺序）、章节行文案。
 
-当前整体：**18 个 suite、88 个用例**；`npm run typecheck`、`npm run lint` 通过。
+当前整体：**19 个 suite、98 个用例**；`npm run typecheck`、`npm run lint` 通过。
 
 ## 4. 还没做
 

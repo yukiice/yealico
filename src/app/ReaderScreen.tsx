@@ -8,6 +8,7 @@ import type {
   RuleDocument,
 } from '../engine';
 import { errorText } from './diagnostics';
+import type { DebugSession } from './debugReport';
 import { progressKeyFor } from './readingProgress';
 import type { ReadingProgressRepository } from './readingProgress';
 import { createRuleFetcherForPlan } from './ruleFetcherForPlan';
@@ -82,6 +83,7 @@ export function ReaderScreen({
   plan,
   chapter,
   progress,
+  debug,
   onBack,
 }: {
   siteName: string;
@@ -91,6 +93,7 @@ export function ReaderScreen({
   plan: RoutePlan;
   chapter: ChapterItem;
   progress: ReadingProgressRepository;
+  debug: DebugSession;
   onBack: () => void;
 }): React.JSX.Element {
   const fetcher = useMemo(() => createRuleFetcherForPlan(plan), [plan]);
@@ -153,6 +156,19 @@ export function ReaderScreen({
         setImages(result.images);
         setPages(result.pages);
         setTotalPages(result.totalPages);
+        debug.record({
+          stage: 'gallery',
+          label: chapter.title ?? chapterKey,
+          counts: {
+            images: result.images.length,
+            pages: result.pages,
+            ...(result.totalPages === undefined
+              ? {}
+              : { totalPages: result.totalPages }),
+          },
+          diagnostics: result.diagnostics,
+          urls: result.urls,
+        });
         setIndex(current =>
           Math.min(current, Math.max(0, result.images.length - 1)),
         );
@@ -175,7 +191,18 @@ export function ReaderScreen({
     return () => {
       cancelled = true;
     };
-  }, [budget, chapterUrl, domain, fetcher, plan, retryToken, rule]);
+  }, [
+    budget,
+    chapter.title,
+    chapterKey,
+    chapterUrl,
+    debug,
+    domain,
+    fetcher,
+    plan,
+    retryToken,
+    rule,
+  ]);
 
   // 受控预加载：只预热紧邻的几张，失败不打扰阅读。
   useEffect(() => {
