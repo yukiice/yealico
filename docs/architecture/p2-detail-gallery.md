@@ -2,7 +2,7 @@
 
 - 记录日期：2026-10-20
 - 范围：List 页面选择、DetailRule、GalleryRule、二级页、`totalImages` 推导、翻页 URL 生成与加载编排。
-- 状态：**Node/Jest 层已实现并通过真实规则合成页验证**；Android 真实规则执行、UI、登录/Cookie 仍未接。
+- 状态：**Node/Jest 与 Android RN fetch 均已跑通**；Android 同步自检 13/13，公开阿巴基猫网络探针 3/3；UI、登录/Cookie 仍未接。
 
 ## 1. 已实现
 
@@ -86,6 +86,16 @@
 
 `urls` 记录实际请求顺序（包括二级页）；`pages` 仍只统计图库页数。
 
+RN/Android 侧由 `createFetchRuleFetcher` 适配：
+
+- 把 `RuleRequest` 转为 `fetch` 的 method/headers/body；
+- 默认 15s 超时，使用 `AbortController`；
+- 返回最终 URL、状态码、响应头和文本；
+- 默认 `credentials: include`，为后续 Cookie 会话保留入口；
+- 不绑定 RN，可在 Node 用注入的 fake fetch 测试。
+
+自检页提供手动“运行真实规则网络探针”：只请求阿巴基猫公开 `update_history`，用真实 `pages` 规则走 `loadListPages`，不自动访问成人站点。
+
 ### 1.5 翻页 URL
 
 `buildPageUrls(template, context, maxPages)`：
@@ -137,6 +147,17 @@
   `https://comicbz.com/m456/chapterimage.ashx?...`
 - 未抓取真实站点；使用合成 script 验证。
 
+### Android API 36 + Hermes（2026-10-21）
+
+- APK 使用 Temurin 17 构建，`assembleDebug` 成功。
+- Metro 冷启动后，App 同步自检 **13/13** 通过；新增 `pages: selected url`、`pages: page rule items`、`totalImages: expanded pictures`。
+- 手动网络探针 **3/3** 通过：
+  - 阿巴基猫 `update_history` 第 1 页抓取成功；
+  - `loadListPages` 返回 70 条；
+  - 0 error diagnostics。
+- 证据：`artifacts/p2-network.png`。
+- 未在 Android 上执行禁漫 Detail/Gallery，也未做登录/Cookie 在线验收。
+
 ## 3. 真实规则暴露并已修复的兼容点
 
 | 问题 | 处理 |
@@ -155,12 +176,12 @@
 
 ## 4. 仍未实现
 
-- Android/Hermes 执行真实规则；当前真实规则只在 Node/Jest 验证。
+- Android 上只验证了阿巴基猫公开 List；禁漫等真实 Detail/Gallery 未在 Android 执行。
 - UI：站点列表、页面选择、详情、阅读器、翻页。
 - WebView、登录、consent、Cookie、图片请求头。
 - `videoRule`、`commentRule`、`seriesRule`、`searchUrl`、`displayMode=tag`。
 - `web:` 图片用 WebView 加载。
-- 真实在线验收：阿巴基猫可用公开页；禁漫等成人站点不做未授权在线抓取。
+- 禁漫等成人站点不做未授权在线抓取；阿巴基猫公开页已作为网络探针。
 - 超时、取消、字符集解码、图片加载缓存。
 - `pages` 的 headers 优先级只实现了 site + page；具体 Rule 对象级 headers 仍待真实样本。
 - `totalImages` 的页码起点/step 仍按 Q5 默认假设，未用真实样本确认。
@@ -172,11 +193,13 @@
 - `__tests__/load-second-level.test.ts`：`loadDetail` 三级链路、`loadGalleryPages` 每页二级页。
 - `__tests__/total-images.test.ts`：模板展开、无 item、缺 `totalImages` 告警。
 - `__tests__/real-rules.test.ts`：禁漫页面选择、拷貝漫畫 `photoAlbumLink`、M-ngabz 无 selector 的 `secondLevelPageUrl`。
-- 当前 Jest：**10 个 suite、48 个用例**；`npm run typecheck`、`npm run lint` 通过。
+- 当前 Jest：**12 个 suite、52 个用例**；`npm run typecheck`、`npm run lint` 通过。
+- `__tests__/rule-fetcher.test.ts`：fetch 转换、Headers、超时。
+- `__tests__/network-selftest.test.ts`：真实阿巴基猫规则 + mock fetcher 的 `loadListPages`。
 
 ## 6. 下一步
 
-1. 把 `buildPagePlan` / `loadDetail` / `loadGalleryPages` 接到 Android fetch/OkHttp 适配器与真实规则 selftest。
+1. 把 `loadDetail` / `loadGalleryPages` 接到 UI；fetch 适配器已就绪。
 2. UI：站点页面列表 → 列表 → 详情 → 阅读器。
 3. 用真实样本确认 `totalImages` 页码/step、`photoAlbumLink` 的 chapter 位置、`pictureRule.link` 的 thumbnail 语义（Q5/Q25）。
 4. 视需要补 `videoRule`、`commentRule`、`seriesRule`、`searchUrl`。

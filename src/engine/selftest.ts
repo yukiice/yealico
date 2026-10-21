@@ -1,6 +1,6 @@
-import { executeGallery, executeList } from './execute';
+import { executeDetail, executeGallery, executeList } from './execute';
 import { FIXTURE_JSON } from './fixtures.generated';
-import { buildRoutePlan } from './plan';
+import { buildPagePlan, buildRoutePlan } from './plan';
 import { parseQrPayload } from './qr';
 import type { Diagnostic, RuleDocument } from './types';
 
@@ -138,6 +138,63 @@ export function runSelftest(): SelftestResult[] {
         payload.diagnostics[0]?.code,
         'UNSUPPORTED_QR_PAYLOAD',
       ),
+    );
+  }
+
+  {
+    const rule: RuleDocument = {
+      name: 'Synthetic Pages',
+      domain: 'example.test',
+      indexUrl: 'https://example.test/default/{page:1}',
+      indexRule: {
+        item: { selector: 'div.default' },
+        title: { selector: 'a', function: 'text' },
+      },
+      pages: [
+        {
+          name: '排行',
+          indexUrl: 'https://example.test/rank/{page:1}',
+          indexRule: {
+            item: { selector: 'div.rank' },
+            title: { selector: '.title', function: 'text' },
+          },
+        },
+      ],
+    };
+    const built = buildPagePlan(rule, '排行');
+    const actual = executeList(
+      built.rule,
+      built.plan,
+      '<div class="rank"><a class="title">Rank 1</a></div>',
+      { baseUrl: 'https://example.test/rank/1', page: 1, domain: rule.domain },
+    );
+    results.push(compare('pages: selected url', built.rule.indexUrl, rule.pages?.[0].indexUrl));
+    results.push(compare('pages: page rule items', actual.items, [{ title: 'Rank 1' }]));
+  }
+
+  {
+    const rule: RuleDocument = {
+      name: 'Synthetic Total Images',
+      domain: 'example.test',
+      detailRule: {
+        totalImages: { selector: 'span.total', function: 'text' },
+        pictureRule: {
+          item: { selector: '#template' },
+          url: { selector: 'this', function: 'attr', param: 'data-template' },
+        },
+      },
+    };
+    const actual = executeDetail(
+      rule,
+      buildRoutePlan(rule),
+      '<span class="total">2</span><div id="template" data-template="/page/{page:}.jpg"></div>',
+      { baseUrl: 'https://example.test/comic/1', domain: rule.domain },
+    );
+    results.push(
+      compare('totalImages: expanded pictures', actual.pictures, [
+        'https://example.test/page/1.jpg',
+        'https://example.test/page/2.jpg',
+      ]),
     );
   }
 

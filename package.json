@@ -5,6 +5,7 @@
   "scripts": {
     "android": "react-native run-android",
     "fixtures": "node scripts/sync-fixtures.mjs",
+    "rules:sync": "node scripts/sync-real-rules.mjs",
     "rules:extract": "python3 scripts/extract_yealico_rules.py",
     "lint": "eslint .",
     "start": "react-native start",

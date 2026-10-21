@@ -34,6 +34,18 @@ Android 模拟器上的 P1 自检证据：
 - `p1-android-pass.png`：10/10 通过
 - `p1-android.png`：早期 URL polyfill 失败证据
 
+## `p2-network.png`
+
+Android 模拟器上的 P2 验证证据（2026-10-21）：
+
+- 同步自检：13/13 通过（含 pages、totalImages）
+- 公开站点网络探针：3/3 通过，阿巴基猫 `update_history` 第 1 页 70 条、0 error diagnostics
+- 只访问公开博客；未访问禁漫等成人站点
+
+## 生成的真实规则
+
+`src/engine/real-rules.generated.ts` 由 `npm run rules:sync` 生成，只包含阿巴基猫公开站点规则，供 Android 网络探针打包使用；生成文件同样只在私有仓库/本地测试使用。
+
 ## `lucky/`
 
 第三方文章截图，仅本地分析使用，**未提交、未再分发**。

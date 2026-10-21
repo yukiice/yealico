@@ -109,8 +109,8 @@ Node 侧结果（2026-10-20）：
 
 - lint：0 error / 0 warning。
 - typecheck：通过（应用配置 + 测试配置）。
-- Jest：10 个 suite、48 个用例全部通过（P2 页面/二级页/totalImages 后）。
-- 覆盖：golden fixture、分页/URL 占位符、函数链、regex、受限 JSONPath、QR、真实 `List: recently`、Detail/Gallery、chapter URL 模板、attr fallback、分页编排与去重、pages、二级页、totalImages。
+- Jest：12 个 suite、52 个用例全部通过（P2 页面/二级页/totalImages/RN fetch 适配器后）。
+- 覆盖：golden fixture、分页/URL 占位符、函数链、regex、受限 JSONPath、QR、真实 `List: recently`、Detail/Gallery、chapter URL 模板、attr fallback、分页编排与去重、pages、二级页、totalImages、fetch 超时与网络探针。
 
 真实规则验证（2026-10-20）：
 
@@ -125,7 +125,7 @@ Android 侧结果（2026-10-20）：
 - 设备：`sdk_gphone64_arm64`，API 36，arm64-v8a；AVD `RN_Test`。
 - 构建：`./gradlew assembleDebug` 成功，`app-debug.apk` 约 101 MB（debug，未压缩/未混淆）。
 - 启动：Metro + `adb reverse tcp:8081`，logcat 出现 `ReactNativeJS: Running "Yealico"`。
-- 自检页：`全部通过 (10)`，含 3 条 QR 检查（v2 识别、64 bytes、要求规则 JSON/URL）；截图 `artifacts/p1-android-pass.png`。
+- 自检页：P1 时 `全部通过 (10)`，含 3 条 QR 检查（v2 识别、64 bytes、要求规则 JSON/URL）；截图 `artifacts/p1-android-pass.png`。
 - 首次运行失败证据：`artifacts/p1-android.png`（URL 拼接错误），修复后重新验证。
 - 基准（20 次，合成 fixture）：
 
@@ -137,6 +137,13 @@ Android 侧结果（2026-10-20）：
 
 - 内存未测量；这些样本远小于真实页面，不能据此承诺线上性能。
 - 开发循环注意：Metro 对新增文件的监听不稳定，改动引擎后需重启 Metro（`--reset-cache`）并清理应用数据，否则会继续执行旧 bundle。
+
+P2 Android 验证（2026-10-21，API 36 / arm64-v8a）：
+
+- APK 使用 Temurin 17 构建，`assembleDebug` 成功。
+- 冷启动自检：`全部通过 (13)`，新增 pages 2 项、totalImages 1 项。
+- 手动真实规则网络探针：`网络探针通过 (3)`，阿巴基猫 `update_history` 第 1 页 70 条、0 error diagnostics。
+- 证据：`artifacts/p2-network.png`；只访问公开博客，未访问成人站点。
 
 ## 5. 待验证项（不得当作已通过）
 
@@ -154,12 +161,12 @@ Android 侧结果（2026-10-20）：
 | Yealico 加密导出 JSON | 已识别 | 3840 bytes 高熵；报 `UNSUPPORTED_ENCRYPTED_EXPORT`，见 [export-format](../rules/yealico-export-format.md) |
 | 1 MB HTML 解析耗时/阻塞 | 待跑 | 记录 P95 与掉帧 |
 | 真实规则兼容 | 部分完成 | 6 条已提取；禁漫 RoutePlan 无 invalid/unknown；阿巴基 118 条 |
-| 真实规则 Android 执行 | 待跑 | 需把真实规则接入 selftest |
-| pages / 二级图片 / 网络编排 | 引擎已实现 | Node/Jest 通过；Android 适配器/UI 待接；search/series 未实现 |
+| 真实规则 Android 执行 | 部分完成 | 阿巴基猫公开 List 网络探针通过；禁漫 Detail/Gallery 未在 Android 跑 |
+| pages / 二级图片 / 网络编排 | 引擎 + Android List 已通 | Node/Jest、Android fetch 适配器通过；Detail/Gallery UI 待接；search/series 未实现 |
 
 ## 6. 下一步
 
 1. 做 P1 能力探针：fetch 的 Set-Cookie/最终 URL、CookieManager、图片 headers、GBK、RegExp、`atob`/LZString、1 MB 解析耗时。
 2. 根据探针结果决定是否需要 Kotlin 模块；没有证据不建空壳。
-3. 把 pages/二级页/totalImages 接入 Android fetch/OkHttp 适配器与真实规则 selftest；禁漫 search/series/displayMode 作为能力矩阵输入。
+3. 把 `loadDetail` / `loadGalleryPages` 接到 UI 与真实规则阅读流程；禁漫 search/series/displayMode 作为能力矩阵输入。
 4. 把真实规则接入 Android selftest；在线验收只针对已授权/公开站点，成人站点不做未授权抓取。

@@ -5,20 +5,58 @@
  * fixture，并把 PASS/FAIL 显示出来，用于验证 Hermes 与打包链路。
  */
 
-import React, { useMemo } from 'react';
-import { Platform, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { runBenchmark, runSelftest } from './src/engine/selftest';
+import type { SelftestResult } from './src/engine/selftest';
+import { createFetchRuleFetcher } from './src/platform/ruleFetcher';
+import { runNetworkSelftest } from './src/platform/networkSelftest';
 
 function App(): React.JSX.Element {
   const results = useMemo(() => runSelftest(), []);
   const benchmarks = useMemo(() => runBenchmark(), []);
+  const fetcher = useMemo(
+    () => createFetchRuleFetcher({ timeoutMs: 15_000 }),
+    [],
+  );
+  const [networkResults, setNetworkResults] = useState<SelftestResult[]>([]);
+  const [networkRunning, setNetworkRunning] = useState(false);
   const failed = results.filter(result => !result.ok).length;
+  const networkFailed = networkResults.filter(result => !result.ok).length;
+
+  const runNetwork = async (): Promise<void> => {
+    if (networkRunning) {
+      return;
+    }
+    setNetworkRunning(true);
+    try {
+      setNetworkResults(await runNetworkSelftest(fetcher));
+    } catch (error) {
+      setNetworkResults([
+        {
+          name: 'network: unexpected error',
+          ok: false,
+          detail: error instanceof Error ? error.message : String(error),
+        },
+      ]);
+    } finally {
+      setNetworkRunning(false);
+    }
+  };
 
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" />
-      <Text style={styles.title}>Yealico P1 自检</Text>
+      <Text style={styles.title}>Yealico 自检</Text>
       <Text
         testID="selftest-summary"
         style={[styles.summary, failed === 0 ? styles.pass : styles.fail]}>
@@ -27,9 +65,37 @@ function App(): React.JSX.Element {
           : `失败 ${failed}/${results.length}`}
       </Text>
       <Text style={styles.note}>
-        合成 fixture，仅验证规则引擎；不代表真实站点兼容。
+        合成 fixture 验证规则引擎；网络探针只访问公开博客，不代表全部真实站点兼容。
       </Text>
+      <Pressable
+        testID="network-selftest"
+        onPress={runNetwork}
+        disabled={networkRunning}
+        style={[styles.button, networkRunning && styles.buttonDisabled]}>
+        <Text style={styles.buttonText}>
+          {networkRunning ? '网络探针运行中…' : '运行真实规则网络探针'}
+        </Text>
+      </Pressable>
+      {networkResults.length > 0 && (
+        <Text
+          style={[
+            styles.networkSummary,
+            networkFailed === 0 ? styles.pass : styles.fail,
+          ]}>
+          {networkFailed === 0
+            ? `网络探针通过 (${networkResults.length})`
+            : `网络探针失败 ${networkFailed}/${networkResults.length}`}
+        </Text>
+      )}
       <ScrollView contentContainerStyle={styles.list}>
+        {networkResults.map(result => (
+          <View key={result.name} style={styles.row}>
+            <Text style={[styles.name, result.ok ? styles.pass : styles.fail]}>
+              {result.ok ? 'PASS' : 'FAIL'} {result.name}
+            </Text>
+            <Text style={styles.detail}>{result.detail}</Text>
+          </View>
+        ))}
         {results.map(result => (
           <View key={result.name} style={styles.row}>
             <Text style={[styles.name, result.ok ? styles.pass : styles.fail]}>
@@ -75,6 +141,27 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 12,
     marginBottom: 16,
+  },
+  button: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#1d4ed8',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  buttonDisabled: {
+    backgroundColor: '#334155',
+  },
+  buttonText: {
+    color: '#eff6ff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  networkSummary: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   list: {
     paddingBottom: 32,
