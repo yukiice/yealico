@@ -1,7 +1,7 @@
 # QR 导入格式与兼容性（P0 补充）
 
 - 记录日期：2026-10-20
-- 功能状态：**必须交付，延期**；领域导入层已完成，相机/持久化/v2 解码未完成。
+- 功能状态：**导入领域层、相机扫码、站点持久化已完成；Yealico v2 解码未完成**（2026-10-22 更新）。
 - 样本：用户提供的 `6DA1253174569835C4C45D113675AEA3.jpg`
 - 画面上标注：`禁漫天堂` / `jm18c-dfg.cc` / `2.26@wc3818290`
 - 关联：[规则语义基线](../reference/yealico-rule-model.md)、[待确认项](open-questions.md)、[兼容矩阵](compat-matrix.md)
@@ -35,6 +35,13 @@ Yealico QR Code: v2:ImJpWmDcnxYVUFVnmJTeQGK+gxDqQ54aXbjfZZYW95uwfyG8ZZieqthW0YRH
 - 两组载荷前 16 字节完全相同：`2262695a60dc9f16155055679894de40`；后 48 字节不同。
 - 扫描作者 325 篇公开文章：0 个 `.json` / GitHub / Gist 链接，0 个 `indexRule` / `listRule` 代码块；作者只发布二维码图片。
 - 结论：无法从作者博客取得规则 JSON 或 URL，也没有公开的生成/解密说明。
+
+### 1.2 2026-10-22 复核
+
+- 用 macOS Vision（`VNDetectBarcodesRequest`）重新解码用户提供的同一张大陆版图片，payload 与 §1 完全一致，确认样本未变。
+- 真机（release 包）点击“扫码导入”能拉起 Google Code Scanner、识别该二维码并回传 64 字节载荷，随后按预期报 `UNSUPPORTED_QR_PAYLOAD`：**扫码链路可用，限制在 v2 格式本身**。
+- 对照数据：两样本均 64 字节，前 16 字节相同；XOR 后仅前 16 字节为 0，其余 48 字节高熵。
+- 该站点规则 JSON 约 22 KB，不可能装进 64 字节，进一步支持“载荷是引用/token，不是规则包”的判断。
 
 ## 2. 载荷不是可直接读取的规则
 
@@ -83,12 +90,15 @@ Yealico QR Code: v2:ImJpWmDcnxYVUFVnmJTeQGK+gxDqQ54aXbjfZZYW95uwfyG8ZZieqthW0YRH
 - Android 自检页 10/10，含 3 条 QR 检查（v2 识别、64 bytes、要求规则 JSON/URL）；**只验证载荷识别，不是相机扫码**。
 - 明文取证路径：见 [yealico-rule-extraction.md](yealico-rule-extraction.md)，用 Yealico 站点菜单 → Edit 逐页截图/复制。
 
+已实现（2026-10-22）：
+
+- 相机扫码 UI：原生 `QrScanner` 模块调用 Google Code Scanner（系统扫码界面，不申请 CAMERA 权限）；无 GMS/Play Store 设备的回退提示见 [p3-site-import.md](../architecture/p3-site-import.md#7-扫码实现与限制)。
+
 尚未实现：
 
-- 相机扫码 UI（需要原生相机/条码模块，属于 P2/P3）。
 - 从相册导入二维码图片。
 - Yealico v2 的实际解密。
-- 扫码后的规则下载、校验、站点落库。
+- 扫码后的规则下载、校验、站点落库（v2 载荷是引用，不是规则本体）。
 
 ## 5. 对计划的调整
 
