@@ -173,7 +173,7 @@ RN/Android 侧由 `createFetchRuleFetcher` 适配：
 | 禁漫 2.26 | `chapterRule` 完整 | `totalPages` + `item` + `image` 完整 | 成人站点，不做未授权在线抓取 | 仅合成页验证 |
 | 阿巴基猫 2.4 | `pictureRule` 直接取图，无 chapter | 无 GalleryRule | 没有章节/图库链路 | 已做真实在线 List/Detail 验收 |
 
-因此不能把“漫画柜/拷貝漫畫有 chapterRule”直接当成“章节/图库已兼容”；下一步若要做真实章节链路，优先补漫画柜的 WebView 和直接 image 集合语义，或继续使用合成页验证执行器。
+因此不能把“漫画柜/拷貝漫畫有 chapterRule”直接当成“章节/图库已兼容”；直接 image 集合语义已补，下一步若要做真实章节链路，优先补漫画柜的 WebView，或继续使用合成页验证执行器。
 
 ## 3. 真实规则暴露并已修复的兼容点
 
