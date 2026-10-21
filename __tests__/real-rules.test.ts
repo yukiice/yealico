@@ -3,10 +3,12 @@ import path from 'node:path';
 
 import {
   buildGalleryPageUrls,
+  buildPagePlan,
   buildRoutePlan,
   executeDetail,
   executeGallery,
   executeList,
+  listRulePages,
   toRuleDocument,
 } from '../src/engine';
 import type { ExtractedYealicoSite } from '../src/engine';
@@ -29,7 +31,9 @@ function loadSite(prefix: string): ExtractedYealicoSite | null {
 }
 
 const jm = loadSite('site-1-');
+const mangaCopy = loadSite('site-2-');
 const aba = loadSite('site-3-');
+const mangabz = loadSite('site-5-');
 
 (jm ? test : test.skip)(
   'extracted 禁漫天堂 2.26 has static index/detail/gallery rules',
@@ -45,8 +49,10 @@ const aba = loadSite('site-3-');
     expect(rule.indexRule).toBeTruthy();
     expect(rule.detailRule).toBeTruthy();
     expect(rule.galleryRule).toBeTruthy();
+    expect(listRulePages(rule)).toHaveLength(29);
     expect(codes).not.toContain('INVALID_RULE');
     expect(codes).not.toContain('UNKNOWN_FIELD');
+    expect(codes).not.toContain('UNSUPPORTED_PAGES');
   },
 );
 
@@ -114,18 +120,10 @@ const aba = loadSite('site-3-');
     if (!aba) {
       return;
     }
-    const page = aba.pages.find(item => item.name === '最近更新');
-    expect(page).toBeTruthy();
-    if (!page) {
-      return;
-    }
-
     const rule = toRuleDocument(aba);
-    const pageRule = {
-      ...rule,
-      indexUrl: page.listUrl ?? undefined,
-      indexRule: page.listRule ?? undefined,
-    };
+    const built = buildPagePlan(rule, '最近更新');
+    expect(built.page).toBeTruthy();
+    expect(built.rule.indexUrl).toContain('/update_history/');
     const html = `
       <div class="entry-content">
         <p class="wp-block-paragraph">[10/05] <a href="https://wc3818290.home.blog/2024/12/01/foo/">Manga Raw</a> - 更新</p>
@@ -134,8 +132,8 @@ const aba = loadSite('site-3-');
     `;
 
     const result = executeList(
-      pageRule,
-      buildRoutePlan(pageRule),
+      built.rule,
+      built.plan,
       html,
       {
         baseUrl: 'https://wc3818290.home.blog/update_history/',
@@ -155,5 +153,102 @@ const aba = loadSite('site-3-');
       datetime: '09/16',
       idCode: '2026/01/07/bar',
     });
+  },
+);
+
+(jm ? test : test.skip)(
+  'extracted 禁漫天堂 can select a page override and inherit site rules',
+  () => {
+    if (!jm) {
+      return;
+    }
+    const rule = toRuleDocument(jm);
+    const built = buildPagePlan(rule, '月排行');
+    const codes = built.plan.unsupported.map(item => item.code);
+
+    expect(built.page).toBeTruthy();
+    expect(built.rule.indexUrl).toBe(
+      'https://{domain:}/albums?t=m&o=mv&page={page:1}',
+    );
+    expect(built.rule.indexRule).toBe(rule.indexRule);
+    expect(built.plan.site.page).toEqual({
+      index: 1,
+      name: '月排行',
+      pk: 19,
+    });
+    expect(codes).not.toContain('UNSUPPORTED_PAGES');
+    expect(codes).not.toContain('INVALID_RULE');
+  },
+);
+
+(mangaCopy ? test : test.skip)(
+  'extracted 拷貝漫畫 photoAlbumLink resolves a second-level chapters URL',
+  () => {
+    if (!mangaCopy) {
+      return;
+    }
+    const rule = toRuleDocument(mangaCopy);
+    const html =
+      '<input class="alert-body-input" value="comic%2Fabc">';
+    const result = executeDetail(
+      rule,
+      buildRoutePlan(rule),
+      html,
+      {
+        baseUrl: 'https://www.mangacopy.com/comic/1',
+        domain: mangaCopy.meta.domain,
+      },
+    );
+
+    expect(result.photoAlbumUrl).toBe(
+      'https://www.mangacopy.com/comicdetail/abc/chapters',
+    );
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fieldPath: 'detailRule.photoAlbumLink',
+          code: 'SECOND_LEVEL_REQUIRED',
+        }),
+      ]),
+    );
+  },
+);
+
+(mangabz ? test : test.skip)(
+  'extracted M-ngabz selector-less secondLevelPageUrl reads the page script',
+  () => {
+    if (!mangabz) {
+      return;
+    }
+    const rule = toRuleDocument(mangabz);
+    const html = `
+      <script>
+        MANGABZ_MID=123; MANGABZ_CID=456; MANGABZ_VIEWSIGN="sig"; MANGABZ_VIEWSIGN_DT="dt";
+      </script>
+    `;
+    const result = executeGallery(
+      rule,
+      buildRoutePlan(rule),
+      html,
+      {
+        baseUrl: 'http://comicbz.com/m456/',
+        domain: mangabz.meta.domain,
+      },
+    );
+
+    expect(result.secondLevelUrl).toBe(
+      'https://comicbz.com/m456/chapterimage.ashx?cid=456&page=1&key=&_cid=456&_mid=123&_dt=dt&_sign=sig',
+    );
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fieldPath: 'galleryRule.secondLevelPageUrl',
+          code: 'SECOND_LEVEL_REQUIRED',
+        }),
+      ]),
+    );
+    expect(
+      result.diagnostics.filter(item => item.code === 'INVALID_RULE'),
+    ).toEqual([]);
   },
 );

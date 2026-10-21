@@ -77,6 +77,9 @@ P1 在模拟器上发现：RN/Hermes 的全局 `new URL(relative, base)` 不做�
 - `executeDetail`：chapterRule / pictureRule、章节 URL 模板。
 - `buildPageUrls` / `buildGalleryPageUrls`：`{page}`/`{pageFormat}` 展开、重复/空/200 页上限。
 - `loadListPages` / `loadGalleryPages`：可注入 fetcher 的顺序抓页、去重、`noNewItems`/`NETWORK_ERROR` 终止。
+- `resolveRulePage` / `buildPagePlan`：真实规则 `pages` 的页面选择与规则继承。
+- `loadDetail`：详情 → `photoAlbumLink` → `pictureRule.link` 的顺序加载；`executePicturePage` 解析图片页。
+- `totalImages` + `{page:}`：详情页图片模板展开（上限 500，缺总数告警）。
 - URL 字段默认绝对化；`attr` 多属性按顺序取第一个非空；`{domain:}` 在 regex/replacement 中展开。
 - `parseQrPayload`：识别 Yealico `v2:` opaque 载荷、加密导出 `{"encrypted":"v2:..."}`、规则 URL、原始 JSON、`yealico://`；不猜解密，不把扫码成功当导入成功。
 - `scripts/extract_yealico_rules.py`：从 macOS Yealico 容器的 SQLite 只读提取规则；不读 Cookie/账号/历史。
@@ -86,8 +89,7 @@ P1 在模拟器上发现：RN/Hermes 的全局 `new URL(relative, base)` 不做�
 
 明确未实现：
 
-- 分页循环、`totalImages` + `{page:}` 推导。
-- DetailRule 的章节/图片二级链路。
+- Android 真实规则执行、UI 阅读器与翻页。
 - WebView、登录、consent、Cookie、图片加载。
 - Yealico QR `v2:` 的实际解码与相机扫码 UI。
 - `+` 多 JSONPath、`$root` 完整语法、数学表达式（P2）。
@@ -107,13 +109,13 @@ Node 侧结果（2026-10-20）：
 
 - lint：0 error / 0 warning。
 - typecheck：通过（应用配置 + 测试配置）。
-- Jest：6 个 suite、30 个用例全部通过。
-- 覆盖：golden fixture、分页/URL 占位符、函数链、regex、受限 JSONPath、QR、真实 `List: recently`、Detail/Gallery、chapter URL 模板、attr fallback、分页编排与去重。
+- Jest：10 个 suite、48 个用例全部通过（P2 页面/二级页/totalImages 后）。
+- 覆盖：golden fixture、分页/URL 占位符、函数链、regex、受限 JSONPath、QR、真实 `List: recently`、Detail/Gallery、chapter URL 模板、attr fallback、分页编排与去重、pages、二级页、totalImages。
 
 真实规则验证（2026-10-20）：
 
 - 数据库：`ComiGa.sqlite`，`ZSITE` 6 条、`ZSITELISTRULE` 9 条、`ZSITEPAGE` 93 条。
-- 禁漫 2.26：index/detail/gallery/series/search/tag 均提取；RoutePlan `static=true`，无 `INVALID_RULE`/`UNKNOWN_FIELD`；合成 Detail 得到 2 章节，Gallery 得到 3 页/2 图，chapter URL 正确展开 `?page=2/3`。未支持 `searchUrl`、`seriesRule`、`pages`、`displayMode=tag`。
+- 禁漫 2.26：index/detail/gallery/series/search/tag 均提取；RoutePlan `static=true`，无 `INVALID_RULE`/`UNKNOWN_FIELD`；29 个 `pages` 可枚举，`月排行` 可选择并继承站点规则；合成 Detail 得到 2 章节，Gallery 得到 3 页/2 图，chapter URL 正确展开 `?page=2/3`。未支持 `searchUrl`、`seriesRule`、`displayMode=tag`。
 - 阿巴基猫 2.4：真实 `List: recently` 对 `update_history` 提取 118 条、0 诊断；117 条带链接，第 118 条为空段落。
 - P2 详情见 [P2 Detail/Gallery](p2-detail-gallery.md)。
 - 详细方法与边界见 [macOS 容器规则提取](../rules/yealico-macos-sqlite.md)。
@@ -153,11 +155,11 @@ Android 侧结果（2026-10-20）：
 | 1 MB HTML 解析耗时/阻塞 | 待跑 | 记录 P95 与掉帧 |
 | 真实规则兼容 | 部分完成 | 6 条已提取；禁漫 RoutePlan 无 invalid/unknown；阿巴基 118 条 |
 | 真实规则 Android 执行 | 待跑 | 需把真实规则接入 selftest |
-| pages / 二级图片 / 网络编排 | 待实现 | Detail/Gallery 引擎已通过；pages/search/series 未实现 |
+| pages / 二级图片 / 网络编排 | 引擎已实现 | Node/Jest 通过；Android 适配器/UI 待接；search/series 未实现 |
 
 ## 6. 下一步
 
 1. 做 P1 能力探针：fetch 的 Set-Cookie/最终 URL、CookieManager、图片 headers、GBK、RegExp、`atob`/LZString、1 MB 解析耗时。
 2. 根据探针结果决定是否需要 Kotlin 模块；没有证据不建空壳。
-3. P2 优先用真实规则补 pages/分页/Detail-Gallery 二级链路；禁漫 search/series/displayMode 作为能力矩阵输入。
+3. 把 pages/二级页/totalImages 接入 Android fetch/OkHttp 适配器与真实规则 selftest；禁漫 search/series/displayMode 作为能力矩阵输入。
 4. 把真实规则接入 Android selftest；在线验收只针对已授权/公开站点，成人站点不做未授权抓取。

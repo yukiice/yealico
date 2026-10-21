@@ -1,12 +1,15 @@
 import {
   buildGalleryPageUrls,
   buildPageUrls,
+  executeDetail,
   executeGallery,
   executeList,
+  executePicturePage,
 } from './execute';
 import { expandUrl } from './placeholder';
 import type {
   Diagnostic,
+  DetailResult,
   ExtractItem,
   GalleryResult,
   ListResult,
@@ -65,6 +68,11 @@ export interface LoadedGalleryResult extends GalleryResult {
   stopReason: LoadStopReason;
 }
 
+export interface LoadedDetailResult extends DetailResult {
+  urls: string[];
+  stopReason: LoadStopReason;
+}
+
 function requestFor(
   url: string,
   context: PageContext,
@@ -117,6 +125,61 @@ async function fetchPage(
       ],
     };
   }
+}
+
+async function executeGalleryPage(
+  rule: RuleDocument,
+  plan: RoutePlan,
+  fetcher: RuleFetcher,
+  request: RuleRequest,
+  context: PageContext,
+): Promise<{
+  result?: GalleryResult;
+  urls: string[];
+  diagnostics: Diagnostic[];
+}> {
+  const diagnostics: Diagnostic[] = [];
+  const urls: string[] = [];
+  const fetched = await fetchPage(fetcher, request);
+  diagnostics.push(...fetched.diagnostics);
+  if (!fetched.response) {
+    return { urls, diagnostics };
+  }
+  urls.push(request.url);
+
+  const firstContext: PageContext = {
+    ...context,
+    baseUrl: fetched.response.url || request.url,
+  };
+  let result = executeGallery(rule, plan, fetched.response.body, firstContext);
+
+  if (result.secondLevelUrl) {
+    const secondary = requestFor(result.secondLevelUrl, context, rule);
+    diagnostics.push(...secondary.diagnostics);
+    if (!secondary.request.url) {
+      diagnostics.push({
+        fieldPath: 'galleryRule.secondLevelPageUrl',
+        code: 'MISSING_FIELD',
+        detail: 'second-level gallery URL expanded to an empty URL',
+        severity: 'error',
+      });
+      return { urls, diagnostics };
+    }
+
+    const secondaryPage = await fetchPage(fetcher, secondary.request);
+    diagnostics.push(...secondaryPage.diagnostics);
+    if (!secondaryPage.response) {
+      return { urls, diagnostics };
+    }
+    urls.push(secondary.request.url);
+    result = executeGallery(rule, plan, fetched.response.body, firstContext, {
+      secondaryContent: secondaryPage.response.body,
+      secondaryUrl: secondaryPage.response.url || secondary.request.url,
+    });
+  }
+
+  diagnostics.push(...result.diagnostics);
+  return { result, urls, diagnostics };
 }
 
 function listKey(item: ExtractItem, index: number): string {
@@ -215,6 +278,154 @@ export async function loadListPages(
   return { items, diagnostics, pages, urls, stopReason };
 }
 
+/**
+ * 详情页加载：详情 -> photoAlbumLink 二级页 -> pictureRule.link 图片页。
+ *
+ * 网络请求仍由注入的 fetcher 完成；本函数只负责顺序、去重和错误聚合。
+ */
+export async function loadDetail(
+  rule: RuleDocument,
+  plan: RoutePlan,
+  fetcher: RuleFetcher,
+  detailUrl: string,
+  context: PageContext,
+  options: LoadOptions = {},
+): Promise<LoadedDetailResult> {
+  const diagnostics: Diagnostic[] = [];
+  const urls: string[] = [];
+  const maxLinks = Math.max(
+    1,
+    Math.min(Math.floor(options.maxPages ?? 200) || 1, 200),
+  );
+
+  if (!detailUrl) {
+    return {
+      fields: {},
+      chapters: [],
+      pictures: [],
+      diagnostics: [
+        {
+          fieldPath: 'detailUrl',
+          code: 'MISSING_FIELD',
+          detail: 'detailUrl is required for detail loading',
+          severity: 'error',
+        },
+      ],
+      urls,
+      stopReason: 'error',
+    };
+  }
+
+  const detailRequest = requestFor(
+    detailUrl,
+    { ...context, page: 1 },
+    rule,
+  );
+  diagnostics.push(...detailRequest.diagnostics);
+  const detailPage = await fetchPage(fetcher, detailRequest.request);
+  diagnostics.push(...detailPage.diagnostics);
+  if (!detailPage.response) {
+    return {
+      fields: {},
+      chapters: [],
+      pictures: [],
+      diagnostics,
+      urls,
+      stopReason: 'error',
+    };
+  }
+  urls.push(detailRequest.request.url);
+
+  const detailContext: PageContext = {
+    ...context,
+    page: 1,
+    baseUrl: detailPage.response.url || detailRequest.request.url,
+  };
+  let result = executeDetail(
+    rule,
+    plan,
+    detailPage.response.body,
+    detailContext,
+  );
+
+  if (result.photoAlbumUrl) {
+    const albumRequest = requestFor(result.photoAlbumUrl, detailContext, rule);
+    diagnostics.push(...albumRequest.diagnostics);
+    const albumPage = await fetchPage(fetcher, albumRequest.request);
+    diagnostics.push(...albumPage.diagnostics);
+    if (!albumPage.response) {
+      diagnostics.push(...result.diagnostics);
+      return { ...result, diagnostics, urls, stopReason: 'error' };
+    }
+    urls.push(albumRequest.request.url);
+    result = executeDetail(
+      rule,
+      plan,
+      detailPage.response.body,
+      detailContext,
+      {
+        secondaryContent: albumPage.response.body,
+        secondaryUrl: albumPage.response.url || albumRequest.request.url,
+      },
+    );
+  }
+
+  diagnostics.push(...result.diagnostics);
+  const pictures = [...result.pictures];
+  const seen = new Set(pictures);
+  const links = [...new Set(result.pictureLinks ?? [])];
+  let stopReason: LoadStopReason = 'complete';
+
+  if (links.length > maxLinks) {
+    links.length = maxLinks;
+    diagnostics.push({
+      fieldPath: 'detailRule.pictureRule.link',
+      code: 'UNSUPPORTED_FEATURE',
+      detail: `picture link limit reached (${maxLinks})`,
+      severity: 'warning',
+    });
+    stopReason = 'maxPages';
+  }
+
+  for (const link of links) {
+    const linkRequest = requestFor(link, { ...context, page: 1 }, rule);
+    diagnostics.push(...linkRequest.diagnostics);
+    const linkPage = await fetchPage(fetcher, linkRequest.request);
+    diagnostics.push(...linkPage.diagnostics);
+    if (!linkPage.response) {
+      stopReason = 'error';
+      continue;
+    }
+    urls.push(linkRequest.request.url);
+    const extracted = executePicturePage(
+      rule,
+      plan,
+      linkPage.response.body,
+      {
+        ...context,
+        page: 1,
+        baseUrl: linkPage.response.url || linkRequest.request.url,
+      },
+    );
+    diagnostics.push(...extracted.diagnostics);
+    for (const picture of extracted.pictures) {
+      if (seen.has(picture)) {
+        continue;
+      }
+      seen.add(picture);
+      pictures.push(picture);
+    }
+  }
+
+  return {
+    ...result,
+    pictures,
+    diagnostics,
+    urls,
+    stopReason,
+  };
+}
+
 export async function loadGalleryPages(
   rule: RuleDocument,
   plan: RoutePlan,
@@ -256,9 +467,15 @@ export async function loadGalleryPages(
     rule,
   );
   diagnostics.push(...firstRequest.diagnostics);
-  const firstPage = await fetchPage(fetcher, firstRequest.request);
-  diagnostics.push(...firstPage.diagnostics);
-  if (!firstPage.response) {
+  const firstLoaded = await executeGalleryPage(
+    rule,
+    plan,
+    fetcher,
+    firstRequest.request,
+    { ...context, page: 1 },
+  );
+  diagnostics.push(...firstLoaded.diagnostics);
+  if (!firstLoaded.result) {
     return {
       totalPages: undefined,
       images: [],
@@ -269,13 +486,8 @@ export async function loadGalleryPages(
     };
   }
 
-  const firstResult = executeGallery(rule, plan, firstPage.response.body, {
-    ...context,
-    page: 1,
-    baseUrl: firstPage.response.url || firstRequest.request.url,
-  });
-  diagnostics.push(...firstResult.diagnostics);
-  urls.push(firstRequest.request.url);
+  const firstResult = firstLoaded.result;
+  urls.push(...firstLoaded.urls);
   for (const image of firstResult.images) {
     if (!seen.has(image)) {
       seen.add(image);
@@ -301,20 +513,20 @@ export async function loadGalleryPages(
       rule,
     );
     diagnostics.push(...requestDiagnostics);
-    const fetched = await fetchPage(fetcher, request);
-    diagnostics.push(...fetched.diagnostics);
-    if (!fetched.response) {
+    const loaded = await executeGalleryPage(
+      rule,
+      plan,
+      fetcher,
+      request,
+      { ...context, page: index + 1 },
+    );
+    diagnostics.push(...loaded.diagnostics);
+    if (!loaded.result) {
       stopReason = 'error';
       break;
     }
-    urls.push(request.url);
-
-    const result = executeGallery(rule, plan, fetched.response.body, {
-      ...context,
-      page: index + 1,
-      baseUrl: fetched.response.url || request.url,
-    });
-    diagnostics.push(...result.diagnostics);
+    urls.push(...loaded.urls);
+    const result = loaded.result;
     pages += 1;
 
     let newImages = 0;
@@ -335,6 +547,7 @@ export async function loadGalleryPages(
   return {
     totalPages: firstResult.totalPages,
     images,
+    secondLevelUrl: firstResult.secondLevelUrl,
     diagnostics,
     pages,
     urls,

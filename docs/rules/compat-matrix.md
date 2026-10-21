@@ -14,8 +14,8 @@
 | `synthetic02` | 合成：图库分页 | Gallery | GalleryRule、totalPages、`{page:1}` | 是 | `samples/synthetic-gallery/expected.json` | API36 PASS（7/7） | 不适用 | 已支持 | 合成样本 |
 | `synthetic03` | 合成：JSONPath | List | JSONPath（无 `$root`） | 是 | `samples/synthetic-json/expected.json` | API36 PASS（7/7） | 不适用 | 部分支持 | `$root` 未测试（Q12） |
 | `synthetic04` | 合成：不支持能力 | Detail | `jsNeededDetail`、未知函数 | 是 | `samples/synthetic-unsupported/expected-plan.json` | API36 PASS（7/7） | 不适用 | 已支持 | 仅验证诊断，不执行页面 |
-| `real-aba-2.4` | 阿巴基猫（作者自建 WordPress） | List | 静态列表、text | 是 | SQLite 提取 + `List: recently` 真实规则测试（2/2） | 待跑 | 真实页 118 条（117 链接 + 1 空段） | 部分支持 | pages/search/waterfall 未实现；见 [SQLite](yealico-macos-sqlite.md) |
-| `real-jm-2.26` | 禁漫天堂（作者规则） | List/Detail/Gallery | CSS、chapterRule、tagRule、gallery | 是 | SQLite 提取；RoutePlan `static=true`；detail 2 章节 / gallery 3 图 3 页（合成页） | 待跑 | 未抓取（成人站点，不做未授权抓取） | 部分支持 | search/series/pages/displayMode tag 未实现 |
+| `real-aba-2.4` | 阿巴基猫（作者自建 WordPress） | List | 静态列表、text | 是 | SQLite 提取 + `List: recently` / `buildPagePlan` 页面选择测试 | 待跑 | 真实页 118 条（117 链接 + 1 空段） | 部分支持 | search/waterfall 未实现；见 [SQLite](yealico-macos-sqlite.md) |
+| `real-jm-2.26` | 禁漫天堂（作者规则） | List/Detail/Gallery | CSS、chapterRule、tagRule、gallery、pages | 是 | SQLite 提取；RoutePlan `static=true`；29 页可选；detail 2 章节 / gallery 3 图 3 页（合成页） | 待跑 | 未抓取（成人站点，不做未授权抓取） | 部分支持 | search/series/displayMode tag 未实现 |
 | `real-pending-a` | 真实样本 A | 待补 | 待补 | 待补 | 待补 | 待补 | 待补 | 待验证 | 需要用户提供规则 JSON 与详情 URL |
 | `real-pending-b` | 真实样本 B | 待补 | 待补 | 待补 | 待补 | 待补 | 待补 | 待验证 | 同上 |
 | `real-pending-c` | 真实样本 C | 待补 | 待补 | 待补 | 待补 | 待补 | 待补 | 待验证 | 同上 |
@@ -46,7 +46,9 @@
 | `{idCode:}` / `{cidCode:}` | 占位符 | 是 | `synthetic-list` / `gallery` | PASS | PASS | — | 已支持 | — |
 | `{json:...}` | 占位符 | 待样本确认 | 单元测试 | PASS | 待跑 | — | 部分支持 | 强制 POST |
 | `{urlPath:n}` / `{urlQuery:k\|d}` | 占位符 | 是 | 单元测试 | PASS | 待跑 | — | 部分支持 | v7.1.1 |
-| `totalImages` + `{page:}` 推导 | 分页 | 待样本确认 | 待补 | 待跑 | 待跑 | — | 待验证 | 见 Q5 |
+| `pages` 页面选择 / 规则继承 | 导航 | 是 | `__tests__/pages.test.ts` + 真实禁漫 | PASS | 待跑 | — | 部分支持 | 页面级 headers 优先级仍待样本；见 Q6 |
+| `totalImages` + `{page:}` 推导 | 分页 | 待样本确认 | `__tests__/total-images.test.ts` | PASS | 待跑 | — | 部分支持 | 页码/step 仍按 Q5 默认假设 |
+| `photoAlbumLink` / `secondLevelPageUrl` | 二级页 | 是 | `__tests__/second-level.test.ts` + 拷貝/M-ngabz 真实规则 | PASS | 待跑 | — | 部分支持 | 真实在线页未抓取；见 Q25 |
 | `gbkCharset*` | 字符集 | 是 | 待补 | 待跑 | 待跑 | — | 待验证 | Hermes 解码待测 |
 | `gbkUrlEncodingAll` | 编码 | 是 | 待补 | 待跑 | 待跑 | — | 待验证 | 见 Q18 |
 | `jsNeeded*` | 能力 | 识别 | `synthetic-unsupported` | PASS | PASS | — | 部分支持 | 识别并报 `NEEDS_WEBVIEW`，P4 实现 |

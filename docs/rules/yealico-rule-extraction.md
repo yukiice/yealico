@@ -43,7 +43,7 @@
 | Yealico 编辑器 | 本项目 |
 | --- | --- |
 | General Rule | `Site`：`name`、`domain`、`displayMode`、`indexUrl`、`detailUrl`、`galleryUrl`、`searchUrl`、`headers`、`flags` |
-| Pages | `Site.pages`；首版可能报 `UNSUPPORTED_PAGES` |
+| Pages | `Site.pages`；已映射为 `RulePage[]`，可用 `resolveRulePage` / `buildPagePlan` 选择 |
 | Series Page | `seriesRule`；首版识别但可能不实现 |
 | Index Page | `indexRule`（ListRule） |
 | Detail Page | `detailRule`；含 `pictureRule` / `chapterRule` / `tagRule` |

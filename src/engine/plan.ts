@@ -1,3 +1,4 @@
+import { resolveRulePage } from './pages';
 import { scanPlaceholderDiagnostics } from './placeholder';
 import { validateJsonPath } from './jsonpath';
 import {
@@ -9,6 +10,8 @@ import type {
   Capabilities,
   Diagnostic,
   RuleDocument,
+  RulePage,
+  RulePageSelection,
   RoutePlan,
   SelectorSpec,
 } from './types';
@@ -19,7 +22,7 @@ import type {
  * P1 只做“能不能执行”的静态判断：
  * - 能力扫描（WebView / 登录 / 字符集 / POST / ignoreDetail）。
  * - 未知字段、未知函数、未知占位符、非法正则。
- * - 首版不实现的 search / series / pages。
+ * - 首版不实现的 search / series；pages 通过 buildPagePlan 选择。
  *
  * 不在这一层发网络请求，也不猜测站点内容。
  */
@@ -119,6 +122,38 @@ export function normalizeSelector(value: unknown): SelectorSpec | null {
     return value as unknown as SelectorSpec;
   }
   return null;
+}
+
+/**
+ * 页面级 URL 选择器允许省略 selector：此时默认作用于整页。
+ * 真实规则（M-ngabz GalleryRule.secondLevelPageUrl）采用这种写法，
+ * 不能按普通 SelectorSpec 直接判为非法。
+ */
+export function normalizePageSelector(value: unknown): SelectorSpec | null {
+  const spec = normalizeSelector(value);
+  if (spec) {
+    return spec;
+  }
+  if (
+    isRecord(value) &&
+    (typeof value.regex === 'string' || typeof value.replacement === 'string')
+  ) {
+    return { selector: 'this', ...value } as unknown as SelectorSpec;
+  }
+  return null;
+}
+
+function validatePageSelector(
+  value: unknown,
+  fieldPath: string,
+  diagnostics: Diagnostic[],
+): void {
+  const spec = normalizePageSelector(value);
+  if (!spec) {
+    push(diagnostics, fieldPath, 'INVALID_RULE', 'page selector must be a string or object');
+    return;
+  }
+  validateSelector(spec, fieldPath, diagnostics);
 }
 
 function flagName(key: string): string {
@@ -314,6 +349,10 @@ function scanRule(
       scanRule(child, TAG_FIELDS, childPath, diagnostics);
       continue;
     }
+    if (key === 'secondLevelPageUrl' || key === 'photoAlbumLink') {
+      validatePageSelector(child, childPath, diagnostics);
+      continue;
+    }
     if (key === 'pictureRule' || key === 'videoRule') {
       scanRule(child, PICTURE_FIELDS, childPath, diagnostics);
       continue;
@@ -347,6 +386,37 @@ function scanUrl(
     return;
   }
   diagnostics.push(...scanPlaceholderDiagnostics(value, fieldPath));
+}
+
+export interface PageRoutePlan {
+  rule: RuleDocument;
+  page?: RulePage;
+  plan: RoutePlan;
+}
+
+/**
+ * 选择站点页面并生成该页面的执行计划。
+ *
+ * 返回的 rule 已合并页面覆盖值，调用方应把它传给 execute* / load*，
+ * 而不是继续使用原始站点规则。
+ */
+export function buildPagePlan(
+  rule: RuleDocument,
+  page: RulePageSelection,
+): PageRoutePlan {
+  const resolved = resolveRulePage(rule, page);
+  const plan = buildRoutePlan(resolved.rule);
+  if (resolved.diagnostics.length > 0) {
+    plan.unsupported.unshift(...resolved.diagnostics);
+  }
+  if (resolved.page) {
+    plan.site.page = {
+      index: resolved.index ?? 0,
+      name: resolved.page.name,
+      ...(typeof resolved.page.pk === 'number' ? { pk: resolved.page.pk } : {}),
+    };
+  }
+  return { rule: resolved.rule, page: resolved.page, plan };
 }
 
 export function buildRoutePlan(rule: RuleDocument): RoutePlan {
@@ -413,14 +483,6 @@ export function buildRoutePlan(rule: RuleDocument): RoutePlan {
       'seriesRule',
       'UNSUPPORTED_SERIES',
       'series pages are not implemented in v1',
-    );
-  }
-  if (rule.pages !== undefined) {
-    push(
-      diagnostics,
-      'pages',
-      'UNSUPPORTED_PAGES',
-      'multi-page sites are not implemented in v1',
     );
   }
   if (capabilities.ignoreDetail && !rule.galleryRule && !rule.galleryUrl) {

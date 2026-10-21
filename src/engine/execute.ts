@@ -2,7 +2,7 @@ import { parseDocument } from 'htmlparser2';
 import type { AnyNode } from 'domhandler';
 
 import { UnsupportedJsonPathError } from './jsonpath';
-import { normalizeSelector } from './plan';
+import { normalizePageSelector, normalizeSelector } from './plan';
 import { evaluateSelector, resolveUrl, selectNodes } from './selector';
 import { expandUrl } from './placeholder';
 import type {
@@ -15,6 +15,7 @@ import type {
   ListResult,
   PageContext,
   PageUrlResult,
+  PicturePageResult,
   RoutePlan,
   RuleDocument,
   SelectorSpec,
@@ -271,11 +272,61 @@ export function executeList(
   return { items, diagnostics };
 }
 
+export interface GalleryExecuteOptions {
+  /** 由调用方抓取 GalleryRule.secondLevelPageUrl 后的页面内容。 */
+  secondaryContent?: string;
+  secondaryUrl?: string;
+}
+
+function extractSecondLevelUrl(
+  galleryRule: Record<string, unknown>,
+  parsed: ParsedInput,
+  context: PageContext,
+  diagnostics: Diagnostic[],
+): string | undefined {
+  if (galleryRule.secondLevelPageUrl === undefined) {
+    return undefined;
+  }
+  const spec = normalizePageSelector(galleryRule.secondLevelPageUrl);
+  if (!spec) {
+    diagnostics.push({
+      fieldPath: 'galleryRule.secondLevelPageUrl',
+      code: 'INVALID_RULE',
+      detail: 'secondLevelPageUrl must be a selector',
+      severity: 'error',
+    });
+    return undefined;
+  }
+  const result = evaluateSelector(
+    spec,
+    {
+      root: parsed.root,
+      current: parsed.root,
+      jsonRoot: parsed.json,
+      baseUrl: context.baseUrl,
+      domain: context.domain,
+    },
+    'galleryRule.secondLevelPageUrl',
+  );
+  diagnostics.push(...result.diagnostics);
+  if (!result.value) {
+    diagnostics.push({
+      fieldPath: 'galleryRule.secondLevelPageUrl',
+      code: 'EMPTY_RESULT',
+      detail: 'second-level gallery selector returned no URL',
+      severity: 'warning',
+    });
+    return undefined;
+  }
+  return resolveUrl(result.value, context.baseUrl);
+}
+
 export function executeGallery(
   rule: RuleDocument,
   plan: RoutePlan,
   content: string,
   context: PageContext,
+  options: GalleryExecuteOptions = {},
 ): GalleryResult {
   const blocked = blockingDiagnostics(plan);
   if (blocked.length > 0) {
@@ -297,8 +348,39 @@ export function executeGallery(
     };
   }
 
-  const parsed = parseInput(content);
+  const primary = parseInput(content);
   const diagnostics: Diagnostic[] = [];
+  const secondLevelUrl = extractSecondLevelUrl(
+    galleryRule as Record<string, unknown>,
+    primary,
+    context,
+    diagnostics,
+  );
+
+  if (secondLevelUrl && options.secondaryContent === undefined) {
+    return {
+      secondLevelUrl,
+      images: [],
+      diagnostics: [
+        ...diagnostics,
+        {
+          fieldPath: 'galleryRule.secondLevelPageUrl',
+          code: 'SECOND_LEVEL_REQUIRED',
+          detail: `fetch ${secondLevelUrl} before executing gallery image rules`,
+          severity: 'error',
+        },
+      ],
+    };
+  }
+
+  const parsed =
+    options.secondaryContent !== undefined
+      ? parseInput(options.secondaryContent)
+      : primary;
+  const pageContext: PageContext = {
+    ...context,
+    baseUrl: options.secondaryUrl || secondLevelUrl || context.baseUrl,
+  };
   let totalPages: number | undefined;
 
   if (galleryRule.totalPages !== undefined) {
@@ -317,7 +399,7 @@ export function executeGallery(
           root: parsed.root,
           current: parsed.root,
           jsonRoot: parsed.json,
-          baseUrl: context.baseUrl,
+          baseUrl: pageContext.baseUrl,
         },
         'galleryRule.totalPages',
       );
@@ -335,7 +417,7 @@ export function executeGallery(
       detail: 'item is required for GalleryRule',
       severity: 'error',
     });
-    return { totalPages, images: [], diagnostics };
+    return { totalPages, secondLevelUrl, images: [], diagnostics };
   }
 
   const imageSpec = normalizeSelector(galleryRule.image);
@@ -346,7 +428,7 @@ export function executeGallery(
       detail: 'image is required for GalleryRule',
       severity: 'error',
     });
-    return { totalPages, images: [], diagnostics };
+    return { totalPages, secondLevelUrl, images: [], diagnostics };
   }
 
   let nodes: Array<AnyNode | JsonValue>;
@@ -355,11 +437,12 @@ export function executeGallery(
       root: parsed.root,
       current: parsed.root,
       jsonRoot: parsed.json,
-      baseUrl: context.baseUrl,
+      baseUrl: pageContext.baseUrl,
     });
   } catch (error) {
     return {
       totalPages,
+      secondLevelUrl,
       images: [],
       diagnostics: [
         ...diagnostics,
@@ -384,18 +467,18 @@ export function executeGallery(
         root: node,
         current: node,
         jsonRoot: parsed.json,
-        baseUrl: context.baseUrl,
+        baseUrl: pageContext.baseUrl,
         domain: context.domain,
       },
       'galleryRule.image',
     );
     diagnostics.push(...result.diagnostics);
     if (result.value) {
-      images.push(resolveUrl(result.value, context.baseUrl));
+      images.push(resolveUrl(result.value, pageContext.baseUrl));
     }
   }
 
-  return { totalPages, images, diagnostics };
+  return { totalPages, secondLevelUrl, images, diagnostics };
 }
 
 export type { SelectorSpec };
@@ -411,11 +494,342 @@ const DETAIL_NESTED_KEYS = new Set([
   'index',
 ]);
 
+export interface DetailExecuteOptions {
+  /** 由调用方抓取 DetailRule.photoAlbumLink 后的页面内容。 */
+  secondaryContent?: string;
+  secondaryUrl?: string;
+}
+
+interface MediaSource extends ParsedInput {
+  baseUrl: string;
+  domain?: string;
+}
+
+function extractPhotoAlbumLink(
+  detailRule: Record<string, unknown>,
+  parsed: ParsedInput,
+  context: PageContext,
+  diagnostics: Diagnostic[],
+): string | undefined {
+  if (detailRule.photoAlbumLink === undefined) {
+    return undefined;
+  }
+  const spec = normalizePageSelector(detailRule.photoAlbumLink);
+  if (!spec) {
+    diagnostics.push({
+      fieldPath: 'detailRule.photoAlbumLink',
+      code: 'INVALID_RULE',
+      detail: 'photoAlbumLink must be a selector',
+      severity: 'error',
+    });
+    return undefined;
+  }
+  const result = evaluateSelector(
+    spec,
+    {
+      root: parsed.root,
+      current: parsed.root,
+      jsonRoot: parsed.json,
+      baseUrl: context.baseUrl,
+      domain: context.domain,
+    },
+    'detailRule.photoAlbumLink',
+  );
+  diagnostics.push(...result.diagnostics);
+  if (!result.value) {
+    diagnostics.push({
+      fieldPath: 'detailRule.photoAlbumLink',
+      code: 'EMPTY_RESULT',
+      detail: 'photoAlbumLink selector returned no URL',
+      severity: 'warning',
+    });
+    return undefined;
+  }
+  return resolveUrl(result.value, context.baseUrl);
+}
+
+function extractChapters(
+  chapterRule: Record<string, unknown>,
+  media: MediaSource,
+  diagnostics: Diagnostic[],
+): ChapterItem[] {
+  const chapters: ChapterItem[] = [];
+  const chapterFields = { ...chapterRule };
+  delete chapterFields.item;
+  delete chapterFields.name;
+  delete chapterFields.index;
+  const itemSpec = normalizeSelector(chapterRule.item);
+  if (!itemSpec) {
+    diagnostics.push({
+      fieldPath: 'detailRule.chapterRule.item',
+      code: 'MISSING_FIELD',
+      detail: 'chapterRule.item is required',
+      severity: 'error',
+    });
+    return chapters;
+  }
+
+  let nodes: Array<AnyNode | JsonValue> = [];
+  try {
+    nodes = selectNodes(itemSpec.selector, {
+      root: media.root,
+      current: media.root,
+      jsonRoot: media.json,
+      baseUrl: media.baseUrl,
+      domain: media.domain,
+    });
+  } catch (error) {
+    diagnostics.push({
+      fieldPath: 'detailRule.chapterRule.item',
+      code:
+        error instanceof UnsupportedJsonPathError
+          ? 'UNSUPPORTED_JSONPATH'
+          : 'INVALID_RULE',
+      detail: error instanceof Error ? error.message : String(error),
+      severity: 'error',
+    });
+    return chapters;
+  }
+
+  for (const node of nodes) {
+    const result = evaluateFields(
+      chapterFields,
+      {
+        root: node,
+        current: node,
+        json: media.json,
+        baseUrl: media.baseUrl,
+        domain: media.domain,
+      },
+      'detailRule.chapterRule',
+      new Set(),
+    );
+    diagnostics.push(...result.diagnostics);
+    const chapter: ChapterItem = { ...result.item };
+    if (typeof chapter.url === 'string' && chapter.url) {
+      chapter.url = resolveUrl(chapter.url, media.baseUrl);
+    }
+    chapters.push(chapter);
+  }
+  return chapters;
+}
+
+interface PictureExtraction {
+  pictures: string[];
+  links: string[];
+}
+
+const MAX_DETAIL_IMAGES = 500;
+
+function extractPictures(
+  pictureRule: Record<string, unknown>,
+  media: MediaSource,
+  diagnostics: Diagnostic[],
+  fieldPath: string,
+  options: {
+    fallbackToRoot?: boolean;
+    totalImages?: number;
+    maxImages?: number;
+  } = {},
+): PictureExtraction {
+  const pictures: string[] = [];
+  const links: string[] = [];
+  const itemSpec = normalizeSelector(pictureRule.item);
+  const urlSpec = normalizeSelector(pictureRule.url);
+  const linkSpec = normalizeSelector(pictureRule.link);
+  const totalImages =
+    options.totalImages && options.totalImages > 0
+      ? Math.floor(options.totalImages)
+      : undefined;
+
+  if (!urlSpec) {
+    diagnostics.push({
+      fieldPath: `${fieldPath}.url`,
+      code: 'MISSING_FIELD',
+      detail: 'pictureRule.url is required',
+      severity: 'error',
+    });
+    return { pictures, links };
+  }
+  if (pictureRule.link !== undefined && !linkSpec) {
+    diagnostics.push({
+      fieldPath: `${fieldPath}.link`,
+      code: 'INVALID_RULE',
+      detail: 'pictureRule.link must be a selector',
+      severity: 'error',
+    });
+    return { pictures, links };
+  }
+  if (!itemSpec && !options.fallbackToRoot && totalImages === undefined) {
+    diagnostics.push({
+      fieldPath: `${fieldPath}.item`,
+      code: 'MISSING_FIELD',
+      detail: 'pictureRule.item is required',
+      severity: 'error',
+    });
+    return { pictures, links };
+  }
+
+  let nodes: Array<AnyNode | JsonValue> = [];
+  if (itemSpec) {
+    try {
+      nodes = selectNodes(itemSpec.selector, {
+        root: media.root,
+        current: media.root,
+        jsonRoot: media.json,
+        baseUrl: media.baseUrl,
+        domain: media.domain,
+      });
+    } catch (error) {
+      diagnostics.push({
+        fieldPath: `${fieldPath}.item`,
+        code:
+          error instanceof UnsupportedJsonPathError
+            ? 'UNSUPPORTED_JSONPATH'
+            : 'INVALID_RULE',
+        detail: error instanceof Error ? error.message : String(error),
+        severity: 'error',
+      });
+      return { pictures, links };
+    }
+  }
+
+  if (nodes.length === 0 && options.fallbackToRoot) {
+    nodes = [media.root];
+  }
+  if (!itemSpec && totalImages !== undefined) {
+    nodes = [media.root];
+  }
+
+  for (const node of nodes) {
+    if (linkSpec) {
+      const result = evaluateSelector(
+        linkSpec,
+        {
+          root: node,
+          current: node,
+          jsonRoot: media.json,
+          baseUrl: media.baseUrl,
+          domain: media.domain,
+        },
+        `${fieldPath}.link`,
+      );
+      diagnostics.push(...result.diagnostics);
+      if (result.value) {
+        links.push(resolveUrl(result.value, media.baseUrl));
+      }
+      continue;
+    }
+
+    const result = evaluateSelector(
+      urlSpec,
+      {
+        root: node,
+        current: node,
+        jsonRoot: media.json,
+        baseUrl: media.baseUrl,
+        domain: media.domain,
+      },
+      `${fieldPath}.url`,
+    );
+    diagnostics.push(...result.diagnostics);
+    if (result.value) {
+      if (result.value.includes('{page')) {
+        if (totalImages === undefined) {
+          diagnostics.push({
+            fieldPath: 'detailRule.totalImages',
+            code: 'MISSING_FIELD',
+            detail: 'picture URL template contains {page:} but totalImages is missing',
+            severity: 'warning',
+          });
+          continue;
+        }
+
+        const limit = Math.min(
+          totalImages,
+          options.maxImages ?? MAX_DETAIL_IMAGES,
+        );
+        if (limit < totalImages) {
+          diagnostics.push({
+            fieldPath: `${fieldPath}.url`,
+            code: 'UNSUPPORTED_FEATURE',
+            detail: `totalImages ${totalImages} exceeds detail image limit ${limit}`,
+            severity: 'warning',
+          });
+        }
+        for (let page = 1; page <= limit; page += 1) {
+          const expanded = expandUrl(
+            result.value,
+            {
+              baseUrl: media.baseUrl,
+              page,
+              domain: media.domain,
+            },
+            `${fieldPath}.url`,
+          );
+          diagnostics.push(...expanded.diagnostics);
+          if (expanded.url) {
+            pictures.push(resolveUrl(expanded.url, media.baseUrl));
+          }
+        }
+      } else {
+        pictures.push(resolveUrl(result.value, media.baseUrl));
+      }
+    }
+  }
+
+  return { pictures, links };
+}
+
+export function executePicturePage(
+  rule: RuleDocument,
+  plan: RoutePlan,
+  content: string,
+  context: PageContext,
+): PicturePageResult {
+  const blocked = blockingDiagnostics(plan);
+  if (blocked.length > 0) {
+    return { pictures: [], diagnostics: blocked };
+  }
+
+  const detailRule = rule.detailRule;
+  const pictureRule = detailRule?.pictureRule;
+  if (!pictureRule || typeof pictureRule !== 'object') {
+    return {
+      pictures: [],
+      diagnostics: [
+        {
+          fieldPath: 'detailRule.pictureRule',
+          code: 'MISSING_FIELD',
+          detail: 'pictureRule is required to resolve a picture page',
+          severity: 'error',
+        },
+      ],
+    };
+  }
+
+  const parsed = parseInput(content);
+  const diagnostics: Diagnostic[] = [];
+  const result = extractPictures(
+    { ...(pictureRule as Record<string, unknown>), link: undefined },
+    {
+      ...parsed,
+      baseUrl: context.baseUrl,
+      domain: context.domain,
+    },
+    diagnostics,
+    'detailRule.pictureRule',
+    { fallbackToRoot: true },
+  );
+  return { pictures: result.pictures, diagnostics };
+}
+
 export function executeDetail(
   rule: RuleDocument,
   plan: RoutePlan,
   content: string,
   context: PageContext,
+  options: DetailExecuteOptions = {},
 ): DetailResult {
   const blocked = blockingDiagnostics(plan);
   if (blocked.length > 0) {
@@ -462,131 +876,79 @@ export function executeDetail(
   );
   diagnostics.push(...fieldDiagnostics);
 
+  const photoAlbumUrl = extractPhotoAlbumLink(
+    detailRule as Record<string, unknown>,
+    parsed,
+    context,
+    diagnostics,
+  );
+  if (photoAlbumUrl && options.secondaryContent === undefined) {
+    return {
+      fields,
+      chapters: [],
+      pictures: [],
+      photoAlbumUrl,
+      pictureLinks: [],
+      diagnostics: [
+        ...diagnostics,
+        {
+          fieldPath: 'detailRule.photoAlbumLink',
+          code: 'SECOND_LEVEL_REQUIRED',
+          detail: `fetch ${photoAlbumUrl} before executing chapter/picture rules`,
+          severity: 'error',
+        },
+      ],
+    };
+  }
+
+  const mediaParsed =
+    options.secondaryContent !== undefined
+      ? parseInput(options.secondaryContent)
+      : parsed;
+  const media: MediaSource = {
+    ...mediaParsed,
+    baseUrl: options.secondaryUrl || photoAlbumUrl || context.baseUrl,
+    domain: context.domain,
+  };
+
   const chapters: ChapterItem[] = [];
   const chapterRule = detailRule.chapterRule;
   if (chapterRule && typeof chapterRule === 'object') {
-    const chapterFields = { ...(chapterRule as Record<string, unknown>) };
-    delete chapterFields.item;
-    delete chapterFields.name;
-    delete chapterFields.index;
-    const itemSpec = normalizeSelector(
-      (chapterRule as Record<string, unknown>).item,
+    chapters.push(
+      ...extractChapters(
+        chapterRule as Record<string, unknown>,
+        media,
+        diagnostics,
+      ),
     );
-    if (!itemSpec) {
-      diagnostics.push({
-        fieldPath: 'detailRule.chapterRule.item',
-        code: 'MISSING_FIELD',
-        detail: 'chapterRule.item is required',
-        severity: 'error',
-      });
-    } else {
-      let nodes: Array<AnyNode | JsonValue> = [];
-      try {
-        nodes = selectNodes(itemSpec.selector, {
-          root: parsed.root,
-          current: parsed.root,
-          jsonRoot: parsed.json,
-          baseUrl: context.baseUrl,
-          domain: context.domain,
-        });
-      } catch (error) {
-        diagnostics.push({
-          fieldPath: 'detailRule.chapterRule.item',
-          code:
-            error instanceof UnsupportedJsonPathError
-              ? 'UNSUPPORTED_JSONPATH'
-              : 'INVALID_RULE',
-          detail: error instanceof Error ? error.message : String(error),
-          severity: 'error',
-        });
-      }
-
-      for (const node of nodes) {
-        const result = evaluateFields(
-          chapterFields,
-          {
-            root: node,
-            current: node,
-            json: parsed.json,
-            baseUrl: context.baseUrl,
-            domain: context.domain,
-          },
-          'detailRule.chapterRule',
-          new Set(),
-        );
-        diagnostics.push(...result.diagnostics);
-        const chapter: ChapterItem = { ...result.item };
-        if (typeof chapter.url === 'string' && chapter.url) {
-          chapter.url = resolveUrl(chapter.url, context.baseUrl);
-        }
-        chapters.push(chapter);
-      }
-    }
   }
 
-  const pictures: string[] = [];
+  let pictureResult: PictureExtraction = { pictures: [], links: [] };
   const pictureRule = detailRule.pictureRule;
   if (pictureRule && typeof pictureRule === 'object') {
-    const picture = pictureRule as Record<string, unknown>;
-    if (picture.link !== undefined) {
-      diagnostics.push({
-        fieldPath: 'detailRule.pictureRule.link',
-        code: 'UNSUPPORTED_FEATURE',
-        detail: 'second-level picture pages are not implemented in P2',
-        severity: 'warning',
-      });
-    }
-    const itemSpec = normalizeSelector(picture.item);
-    const urlSpec = normalizeSelector(picture.url);
-    if (!itemSpec || !urlSpec) {
-      diagnostics.push({
-        fieldPath: 'detailRule.pictureRule',
-        code: 'MISSING_FIELD',
-        detail: 'pictureRule.item and pictureRule.url are required',
-        severity: 'error',
-      });
-    } else {
-      let nodes: Array<AnyNode | JsonValue> = [];
-      try {
-        nodes = selectNodes(itemSpec.selector, {
-          root: parsed.root,
-          current: parsed.root,
-          jsonRoot: parsed.json,
-          baseUrl: context.baseUrl,
-          domain: context.domain,
-        });
-      } catch (error) {
-        diagnostics.push({
-          fieldPath: 'detailRule.pictureRule.item',
-          code:
-            error instanceof UnsupportedJsonPathError
-              ? 'UNSUPPORTED_JSONPATH'
-              : 'INVALID_RULE',
-          detail: error instanceof Error ? error.message : String(error),
-          severity: 'error',
-        });
-      }
-      for (const node of nodes) {
-        const result = evaluateSelector(
-          urlSpec,
-          {
-            root: node,
-            current: node,
-            jsonRoot: parsed.json,
-            baseUrl: context.baseUrl,
-            domain: context.domain,
-          },
-          'detailRule.pictureRule.url',
-        );
-        diagnostics.push(...result.diagnostics);
-        if (result.value) {
-          pictures.push(resolveUrl(result.value, context.baseUrl));
-        }
-      }
-    }
+    const totalImages = Number(fields.totalImages);
+    pictureResult = extractPictures(
+      pictureRule as Record<string, unknown>,
+      media,
+      diagnostics,
+      'detailRule.pictureRule',
+      {
+        totalImages:
+          Number.isFinite(totalImages) && totalImages > 0
+            ? totalImages
+            : undefined,
+      },
+    );
   }
 
-  return { fields, chapters, pictures, diagnostics };
+  return {
+    fields,
+    chapters,
+    pictures: pictureResult.pictures,
+    photoAlbumUrl,
+    pictureLinks: pictureResult.links,
+    diagnostics,
+  };
 }
 
 /**

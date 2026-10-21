@@ -87,7 +87,7 @@ python3 scripts/extract_yealico_rules.py --out artifacts/yealico-rules
 - `ZGALLERYRULEJSON`: `item`、`image`、`totalPages`
 - `ZSERIESRULEJSON`、`ZSEARCHRULEJSON`、`ZTAGSEARCHRULEJSON`: 有内容，但首版未实现
 - `ZFLAGS` 为空；`displayMode` 为 `tag, collection, default, default`
-- RoutePlan：`static=true`，无 `INVALID_RULE`/`UNKNOWN_FIELD`；未支持 `searchUrl`、`seriesRule`、`pages`、`displayMode=tag`
+- RoutePlan：`static=true`，无 `INVALID_RULE`/`UNKNOWN_FIELD`；29 个 `pages` 可枚举；未支持 `searchUrl`、`seriesRule`、`displayMode=tag`
 
 ### 阿巴基猫 2.4
 

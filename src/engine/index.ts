@@ -1,5 +1,8 @@
 export * from './types';
-export { buildRoutePlan, normalizeSelector } from './plan';
+export { buildPagePlan, buildRoutePlan, normalizeSelector } from './plan';
+export type { PageRoutePlan } from './plan';
+export { listRulePages, resolveRulePage } from './pages';
+export type { ResolvedRulePage } from './pages';
 export {
   expandUrl,
   findPlaceholders,
@@ -18,13 +21,15 @@ export {
   executeDetail,
   executeGallery,
   executeList,
+  executePicturePage,
 } from './execute';
 export type { ChapterItem, DetailResult, PageUrlResult } from './types';
 export { parseJsonPath, queryJsonPath, validateJsonPath } from './jsonpath';
-export { loadGalleryPages, loadListPages } from './load';
+export { loadDetail, loadGalleryPages, loadListPages } from './load';
 export type {
   LoadOptions,
   LoadStopReason,
+  LoadedDetailResult,
   LoadedGalleryResult,
   LoadedListResult,
   RuleFetcher,

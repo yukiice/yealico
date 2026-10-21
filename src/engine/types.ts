@@ -20,6 +20,7 @@ export type DiagnosticCode =
   | 'UNSUPPORTED_FEATURE'
   | 'UNSUPPORTED_SERIES'
   | 'UNSUPPORTED_PAGES'
+  | 'SECOND_LEVEL_REQUIRED'
   | 'UNSUPPORTED_IGNORE_DETAIL'
   | 'UNSUPPORTED_REGEX'
   | 'NEEDS_WEBVIEW'
@@ -50,6 +51,37 @@ export interface SelectorSpec {
 
 export type RuleFields = Record<string, unknown>;
 
+export type RulePageSelection = string | number;
+
+export interface RulePage {
+  pk?: number;
+  name: string;
+  displayMode?: string;
+  flags?: Record<string, unknown>;
+  headers?: Record<string, string>;
+  indexUrl?: string;
+  detailUrl?: string;
+  galleryUrl?: string;
+  indexRule?: RuleFields;
+  detailRule?: RuleFields;
+  galleryRule?: RuleFields;
+  seriesRule?: RuleFields;
+  [key: string]: unknown;
+}
+
+export interface RulePageSummary {
+  index: number;
+  name: string;
+  pk?: number;
+  displayMode?: string;
+}
+
+export interface SelectedRulePage {
+  index: number;
+  name: string;
+  pk?: number;
+}
+
 export interface RuleDocument {
   name?: string;
   domain?: string;
@@ -65,7 +97,9 @@ export interface RuleDocument {
   detailRule?: RuleFields;
   galleryRule?: RuleFields;
   seriesRule?: RuleFields;
-  pages?: unknown;
+  pages?: RulePage[];
+  /** resolveRulePage 的产物；执行器只读取它做展示/诊断，不参与规则扫描。 */
+  selectedPage?: SelectedRulePage;
   [key: string]: unknown;
 }
 
@@ -87,6 +121,7 @@ export interface RoutePlan {
     name: string;
     domain: string;
     displayMode: string;
+    page?: SelectedRulePage;
   };
   capabilities: Capabilities;
   unsupported: Diagnostic[];
@@ -118,6 +153,8 @@ export interface ListResult {
 export interface GalleryResult {
   totalPages?: number;
   images: string[];
+  /** GalleryRule.secondLevelPageUrl 解析出的地址；调用方决定是否抓取。 */
+  secondLevelUrl?: string;
   diagnostics: Diagnostic[];
 }
 
@@ -132,6 +169,15 @@ export interface ChapterItem {
 export interface DetailResult {
   fields: ExtractItem;
   chapters: ChapterItem[];
+  pictures: string[];
+  /** DetailRule.photoAlbumLink 解析出的二级页地址。 */
+  photoAlbumUrl?: string;
+  /** pictureRule.link 解析出的待抓取图片页。 */
+  pictureLinks?: string[];
+  diagnostics: Diagnostic[];
+}
+
+export interface PicturePageResult {
   pictures: string[];
   diagnostics: Diagnostic[];
 }

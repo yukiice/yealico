@@ -34,7 +34,7 @@
 | `indexRule` | 默认 ListRule | 必须 |
 | `detailRule` | 默认 DetailRule | 必须 |
 | `galleryRule` | 默认 GalleryRule | 必须（若样本使用） |
-| `pages` | 多页面配置，可覆盖 displayMode / flags / URL / rule，用 `relListRuleIndex` 关联 | 识别；首版只取第一套，其余报 `UNSUPPORTED_PAGES` |
+| `pages` | 多页面配置，可覆盖 displayMode / flags / URL / rule，用 `relListRuleIndex` 关联 | 支持；`resolveRulePage` 按名称/索引选择并继承站点默认值 |
 | `flags` | 能力声明 | 必须扫描 |
 | HTTP headers | 6.3+；优先级 Rule > Page > Site | 必须按优先级合并 |
 
@@ -51,13 +51,13 @@
 | `largeImage` | 大图 URL |
 | `Video` | 视频 URL |
 | `category` / `author` / `uploader` / `published` / `datetime` / `rating` | 元数据 |
-| `totalImages` | 图片总数；与 `pictureRule.url` 的 `{page:}` 组合时有特殊语义 |
+| `totalImages` | 图片总数；与 `pictureRule.url` 的 `{page:}` 组合时按 1..N 展开 |
 
 ### 3.2 DetailRule
 
 - 通用字段与 ListRule 相同。
-- `totalImages`：详情页图片总数。
-- `photoAlbumLink`：二级页面；设置后 `pictureRule` / `chapterRule` / `videoRule` 作用于该链接页。
+- `totalImages`：详情页图片总数；已接入 `pictureRule.url` 的 `{page:}` 展开。
+- `photoAlbumLink`：二级页面；设置后 `pictureRule` / `chapterRule` / `videoRule` 作用于该链接页（已实现 detail 二级页编排）。
 - `tagRule`：`item`、`name`、`url`。
 - `pictureRule`：`item`、`thumbnail`、`url`、`link`。
   - `url` 在定义了 `link` 时，作用于 link 指向的页面。
@@ -67,7 +67,7 @@
 
 ### 3.3 GalleryRule
 
-- `secondLevelPageUrl`：二级页面；设置后 `pictureRule` / `videoRule` 作用于该链接页。
+- `secondLevelPageUrl`：二级页面；设置后 `pictureRule` / `videoRule` 作用于该链接页（已实现 gallery 二级页编排；允许省略 `selector`）。
 - `totalPages`：当前图库页的总页数。
 - `item`：当前页图片集合。
 - `image`：单张图片 URL。
@@ -203,8 +203,9 @@ RoutePlan.capabilities = {
 | JSONPath + `$root` | 是 | 官方 5.4.1+，样本可能使用 |
 | `+` 多 JSONPath | 是（若 P0b 样本需要；否则识别并报错） | 官方 6.5+ |
 | ListRule / DetailRule / GalleryRule | 是 | 三条取图链路 |
-| `pictureRule` + `totalImages` / `{page:}` | 是 | 直接影响是否需要逐页请求 |
-| SeriesRule / search / comments / pages 多页 | 否，识别并报错 | 首版范围控制 |
+| `pictureRule` + `totalImages` / `{page:}` | 是 | 已实现模板展开；页码/step 仍待真实样本确认 |
+| pages 多页 | 是 | 已实现页面选择与规则继承 |
+| SeriesRule / search / comments | 否，识别并报错 | 首版范围控制 |
 | WebView / login / consent | 否，P4/P3b | 需要样本证明 |
 | GBK / Big5 | 是 | 官方 flags，且影响解码与 URL |
 | LZString / Base64 函数 | 是 | 纯 JS 可移植 |

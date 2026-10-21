@@ -130,7 +130,7 @@ RuleDocument -> RoutePlan {
 建议明确：
 
 - 首版实现 `ListRule`、`DetailRule`、`GalleryRule` 三条静态链路。
-- `SeriesRule`、`commentRule`、`searchUrl`、`pages` 多页：首版识别并返回 `UNSUPPORTED_FEATURE`，不静默忽略；是否实现由 P0 样本决定。
+- `SeriesRule`、`commentRule`、`searchUrl`：首版识别并返回 `UNSUPPORTED_FEATURE`，不静默忽略；是否实现由 P0 样本决定。`pages` 多页已在 P2 实现页面选择与规则继承。
 - `pictureRule` 与 `GalleryRule.image` 两条取图路径都要建模；不能只实现其中一条。
 - `ignoreDetail` 必须支持：否则部分站点从列表直接进图库的导航无法成立。
 
