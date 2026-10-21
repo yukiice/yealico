@@ -459,7 +459,7 @@ export const MANHUAGUI_RULE_JSON = {
         "selector": "span.manga-page"
       },
       "image": {
-        "selector": "#manga>img",
+        "selector": "#mangaBox img.mangaFile, #manga>img",
         "function": "attr",
         "param": "src"
       }

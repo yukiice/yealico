@@ -200,7 +200,7 @@ Cookie 按目标 URL 和有效属性处理，不能把一个域名的 Cookie 无
 
 验收：未经手工改写的目标规则完成“导入 → 阅读 → 重启恢复”；切换页面时旧请求能取消或旧结果被丢弃；失败可重试且不会串入其他站点数据。
 
-当前进度：导入→列表→详情→章节→阅读器→调试页已在 Android 模拟器跑通；站点重启恢复已验证，**阅读进度的重启恢复仍缺真机证据**；阅读器图片未加载成功（漫画柜章节选择器漂移）。详见 [Android 验收记录](architecture/p3-android-verification.md)。
+当前进度：导入→列表→详情→章节→阅读器（出图）→进度落盘→重启恢复→调试页已在 Android 模拟器跑通；漫画柜章节选择器已修为 `#mangaBox img.mangaFile, #manga>img` 双分组。**仍缺**：多页章节只加载第一页（`totalPages` 缺失），多图位次恢复无真机证据。详见 [Android 验收记录](architecture/p3-android-verification.md)。
 
 **必须功能债**：Yealico QR 导入。当前只完成识别与明确失败；相机扫码、v2 解码、站点落库 UI 未完成。详见 [P3 站点导入与二维码](architecture/p3-site-import.md)。
 

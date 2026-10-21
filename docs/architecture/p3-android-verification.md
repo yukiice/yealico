@@ -3,7 +3,7 @@
 - 记录日期：2026-10-21
 - 设备：`emulator-5554`（AVD `RN_Test`），Android SDK 36，1080×2400
 - 方式：Metro dev server + `react-native run-android`，用 `adb shell input tap` / `uiautomator dump` 逐步驱动，按屏幕文本断言
-- 状态：**导入 → 列表 → 详情 → 章节 → 阅读器 → 调试页全链路跑通；阅读器图片加载因规则选择器漂移未成功；阅读进度未能在真机复现**
+- 状态：**导入 → 列表 → 详情 → 章节 → 阅读器（出图 + 进度落盘 + 重启恢复）→ 调试页全链路跑通**
 
 ## 1. 通过的项
 
@@ -12,10 +12,14 @@
 | URL 导入 | 导入 `http://10.0.2.2:8000/aba.json`，UI 显示「已导入 阿巴基猫 あばき猫 (wc3818290.home.blog)」 |
 | 站点持久化 | `am force-stop` 后重启，两个站点仍在列表里（重复两次） |
 | 列表加载 | 阿巴基猫「最近更新」：调试页记录 `items=70 pages=1` |
-| 详情 | `chapters=0 pictures=4 urls=1`，页面渲染标题、简介、图片区 |
+| 阿巴基猫详情 | `chapters=0 pictures=4 urls=1`，页面渲染标题、简介、图片区 |
 | 漫画柜 WebView 列表 | 列表渲染出「2099 Alpha / 漫威僵尸-战区」等条目 |
 | 详情章节 | `章节 (1)` + 「第01卷 · 阅读 · 916672」可点 |
-| 阅读器打开 | 进入 `第01卷`，显示 `暂无图片 · 已载 0 页` + 「重新加载」 |
+| 阅读器出图 | 修复选择器后显示 `1 / 1 图 · 已载 1 页`，无错误横幅 |
+| 进度落盘 | `run-as` 读到 `{"version":2,...,"progress":[{"chapterKey":"916672","index":0,"total":1}]}` |
+| 进度回到 UI | 详情章节行变为「已读 1 / 1 张」 |
+| 重启恢复 | 强杀重启后站点页顶部显示「上次读到《第01卷》第 1 张」 |
+| 在线探针 | 漫画柜探针通过 (5)：`chapters=650`、`images=1, totalPages=unknown, errors=none` |
 | 调试页 | 规则来源/哈希/原文长度、能力串、阻断项、阶段记录按新到旧排列 |
 | 脱敏 | 阅读器报错里的 `&amp;m=somwbCWkrsmGioLKBdzZAw` 显示为 `&amp;m=***` |
 
@@ -50,13 +54,34 @@ https://eu1.hamreus.com/.../2099_ALPHA_0.jpg.webp?e=1793771509&m=somwbCWkrsmGioL
 - `sanitizeText` 兼容真实诊断的两种脏形态：HTML 转义的 `&amp;` 分隔符、`|` 拼接的候选值；
 - 增加“值形态”识别：长度 ≥ 20 且大小写混合的参数值按签名处理（`m=...` 这种名字看不出问题的参数也能遮住）。
 
-## 3. 仍存在的问题
+## 3. 已修复：漫画柜章节选择器漂移
 
-- **漫画柜章节图片没取到**：`wait=#manga>img` 在 15s 内未命中，错误文本里已经能看到 `imgs=2`，说明页面里确实有图，但选择器与现行页面结构不符（兼容矩阵里已记录「当前图片 selector 已改版」）。这是规则兼容问题，不是阅读器逻辑问题。
-- **阅读进度没能在真机验证**：进度只在图片加载成功后写入，上面这条导致没有写入时机。Jest 覆盖仍然有效，但「杀进程后恢复到第 N 张」缺真机证据。
+首次验收时阅读器报：
+
+```text
+NETWORK_ERROR: WebView render timed out after 15000ms … wait=#manga>img … imgs=2
+```
+
+页面里确实有图（`imgs=2`），但 `wait` 用的是旧布局的 `#manga>img`，现行章节页把图片放在 `#mangaBox img.mangaFile`。
+
+修法不写死在代码里，而是改规则源文件 `artifacts/yealico-rules/site-6-*.json` 的 `gallery.image.selector`，用逗号分组兼容两种布局：
+
+```json
+"selector": "#mangaBox img.mangaFile, #manga>img"
+```
+
+然后 `npm run rules:sync` 重新生成 `real-rules.generated.ts`。设备上「漫画柜在线探针」复验：`images=1, totalPages=unknown, errors=none`，阅读器也能出图。
+
+`totalPages` 仍是 `unknown`（`span.manga-page` 不存在），所以多页章节目前只加载第一页——这是下一个待修点，不是本条的遗留。
+
+## 4. 仍然存在的限制
+
+- **多页章节只加载第一页**：`gallery.totalPages` 的 `span.manga-page` 在现行页面不存在，`buildGalleryPageUrls` 在总数未知时固定只生成 1 页。
 - **`|||` 拼接、无 `=` 的 token 未脱敏**：例如 `...webp|||sGIEwtLn`。这类值没有参数名可依据，按值形态判断又会误伤 `mangaFile` 这类字段名，暂不处理。
 
-## 4. 开发环境注意
+## 5. 开发环境注意
 
-- 本机没有 Watchman，Metro 的文件监听会漏掉工具写入的改动：**改完源码要重启 Metro**，否则模拟器拿到的是旧 bundle（本次排查中先看到的是提交前的 bundle，`grep contentState` 为 0）。
+- **没有 Watchman，Metro 监听会漏掉工具写入的改动**：改完源码要重启 Metro，否则模拟器拿到旧 bundle。本次排查中最初 `grep contentState` 为 0 就是这个原因。
+- **`adb shell input text` 会把首字母大写**：输入 `http://…` 变成 `Http://…`，RN 的 fetch 直接报 `Network request failed` 且服务端收不到请求。绕过方式：先输入 `xhttp://…`，再 `keyevent 122`（HOME）+ `keyevent 112`（FORWARD_DEL）删掉首字母。
+- **`adb reverse` 不一定稳定**：`--list` 里有映射、`toybox nc` 也连不上时，`--remove-all` 后重建即可；定位时优先用 `toybox nc 10.0.2.2 <port>` 验证设备到宿主的链路。
 - 真机验证脚本化的前提是坐标稳定；页面文案一变，`adb shell input tap` 的坐标就要重新从 `uiautomator dump` 里取。

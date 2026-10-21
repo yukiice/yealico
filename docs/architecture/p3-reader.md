@@ -98,5 +98,5 @@ ReaderScreen
 
 - 章节连读、章节间跳转；
 - 连续滚动 / 双页模式；
-- 阅读进度只在 Jest 验证；Android 上因为漫画柜章节选择器漂移、图片没加载成功，没有写入进度的时机，见 [Android 验收记录](p3-android-verification.md)；
-- 图片磁盘缓存与内存上限。
+- 阅读进度已在 Android 上验证写入与重启恢复；但受 `totalPages` 缺失限制，只验到 `index=0` 的单图章节，多图位次恢复仍缺证据；
+- 多页章节只加载第一页（`span.manga-page` 不存在）；
