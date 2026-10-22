@@ -76,10 +76,10 @@ SQLite（明文落库）
 
 证据：
 
+- **结构（2026-10-22 修正）**：64 字节 = **16 字节固定 IV 前缀 + 48 字节 AES-CBC 密文**；三个不同二维码的前 16 字节完全一致（`2262695a60dc9f16155055679894de40`），说明它是**固定 IV**，不是“明文首块相同”；
+- **明文**：`Site.<UUID>`（41 字节）→ PKCS7 后 48 字节，与密文长度完合；
 - 二进制里 `{"recordName": "` 紧邻 `Yealico QR Code: ` 与 `Yealico Site Rule`；
-- 明文长度完全吻合：`{"recordName": "`(16) + `Site.`+UUID(41) + `"}`(2) = 59 字节，PKCS7 后 64 字节 = 密文长度；
-- 两个样本前 16 字节相同，因为明文首块都是 `{"recordName": "`；
-- SQLite `ZSITE.ZRECORDNAME` 存的是 `Site.<UUID>`，与推定的明文格式一致；
+- SQLite `ZSITE.ZRECORDNAME` 存的是 `Site.<UUID>`，与推定明文一致；
 - `recordID` 是 NSKeyedArchiver 的 `CKRecordID`，含 `zoneName=Site-Zone`、`ownerName=__defaultOwner__`；
 - entitlements：`iCloud.work.cmbook.ComiGa`、CloudKit、Production；
 - 错误文案：`To activate this QR Code, please ensure that the network is available.`（错误码 -1/-2/-3）。
@@ -95,6 +95,9 @@ SQLite（明文落库）
 | 二进制全部 32 字节窗口（AES-256-ECB） | 7,028,113 个 | 无 |
 | hex/base64 解码候选（376 个文件） | 772 个 | 无 |
 | 明文首块变体（带/不带空格、含 `Site.`） | 4 种 | 无 |
+| **修正后**：CBC + 固定 IV + 明文 `Site.<UUID>`（字符串候选） | 1,364 个 | 无 |
+| **修正后**：CBC + 固定 IV + 全量 16 字节窗口 | 7,028,129 个 | 无 |
+| **KDF 派生**（PBKDF2-SHA256，10,870 口令 × 5 salt × 3 迭代 × 2 长度） | 326,100 个 | 无 |
 
 因为 ECB 首块与“CBC + IV=0”的首块等价，上表也覆盖了 IV 为零的 CBC 情况。
 **结论：对称密钥不在客户端二进制或资源中，v2 解码必须服务端参与。**
@@ -133,6 +136,29 @@ CloudKit 访问特性（实测）：
 - 载荷的 base64 / hex / base64url / 前 16 字节 hex / `Site.`+hex 五种编码直接作为 recordName 查询 CloudKit，均为 `NOT_FOUND`——载荷不是直接可用的记录名。
 - 容器内其他位置也查过：`work.cmbook.ComiGa.plist`（含 `userRole` 字段，测试后非密钥）、`CloudKit/cloudd_db/db`（仅 CloudKit 内部表，无规则数据）。
 - App 容器共 305 个文件，已扫描 376 个文件（含框架/资源），均未找到可用密钥。
+
+### 1.5 2026-10-22 动态调试尝试（失败）
+
+静态搜索穷尽后，尝试运行时提取密钥。
+
+环境：Frida 17.24.3（`/tmp/fridaenv`，临时 venv），hook 脚本挂在 CommonCrypto 的 `CCCrypt` 上，捕获 `key / iv / input / output`。
+
+**结果：`PermissionDeniedError: unable to access process ... from the current user account`**
+
+排除过程：
+
+| 尝试 | 结果 |
+| --- | --- |
+| 直接 attach ComiGa | PermissionDenied |
+| 给 Setsuna Desktop 授予“开发者工具”并重启双方 | PermissionDenied |
+| 对照：attach 自己启动的 `sleep` 进程 | PermissionDenied |
+| `sudo` 启动 Frida 再 attach | PermissionDenied |
+
+对照测试很关键：**连自己起的 `sleep` 都附加不了**，说明不是 ComiGa 的特例，而是调用方拿不到 `task_for_pid`。
+
+**根因**：ComiGa 的签名是 `Authority=Apple iPhone OS Application Signing`，即 **iOS App 通过「iOS App on Mac」机制运行**。这类进程的 `task_for_pid` 在签名/沙盒层面被禁，`root` 也绕不过；关闭 SIP 也未必有效，因为限制不在 SIP。
+
+结论：**在 macOS 上无法完成运行时提取**。
 
 在这三种情况中，只有第 1 种能在不依赖 Yealico 服务的前提下离线兼容；第 2 种需要官方 API；第 3 种需要格式文档或规则明文对照。**没有证据前不猜密钥，也不把“扫码成功”当作“导入成功”。**
 
