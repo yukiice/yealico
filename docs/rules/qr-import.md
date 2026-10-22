@@ -60,6 +60,80 @@ Yealico QR Code: v2:ImJpWmDcnxYVUFVnmJTeQGK+gxDqQ54aXbjfZZYW95uwfyG8ZZieqthW0YRH
 2. 服务端 token（App 扫描后向服务端换取规则）；
 3. 带签名/版本信息的私有二进制包。
 
+### 1.3 2026-10-22 定论：载荷是 CloudKit 引用，密钥不在客户端
+
+上面三种可能已经收敛为第 2 种。完整机制：
+
+```text
+v2 二维码（64 字节）
+  ↓ 本地 AES 解密（密钥不在客户端，见下）
+{"recordName": "Site.<UUID>"}      ← 59 字节，PKCS7 后正好 64 字节
+  ↓ 联网“激活” + CloudKit 查询
+规则数据
+  ↓
+SQLite（明文落库）
+```
+
+证据：
+
+- 二进制里 `{"recordName": "` 紧邻 `Yealico QR Code: ` 与 `Yealico Site Rule`；
+- 明文长度完全吻合：`{"recordName": "`(16) + `Site.`+UUID(41) + `"}`(2) = 59 字节，PKCS7 后 64 字节 = 密文长度；
+- 两个样本前 16 字节相同，因为明文首块都是 `{"recordName": "`；
+- SQLite `ZSITE.ZRECORDNAME` 存的是 `Site.<UUID>`，与推定的明文格式一致；
+- `recordID` 是 NSKeyedArchiver 的 `CKRecordID`，含 `zoneName=Site-Zone`、`ownerName=__defaultOwner__`；
+- entitlements：`iCloud.work.cmbook.ComiGa`、CloudKit、Production；
+- 错误文案：`To activate this QR Code, please ensure that the network is available.`（错误码 -1/-2/-3）。
+
+**这解释了飞行模式现象**：v2 二维码需要联网激活，不是纯离线格式。
+
+**密钥搜索记录（全部为 0 命中）**：
+
+| 尝试 | 规模 | 结果 |
+| --- | --- | --- |
+| 字符串候选（长度 16/24/32） | 1,354 个 | 无 |
+| 二进制全部 16 字节窗口（AES-128-ECB） | 7,028,129 个 | 无 |
+| 二进制全部 32 字节窗口（AES-256-ECB） | 7,028,113 个 | 无 |
+| hex/base64 解码候选（376 个文件） | 772 个 | 无 |
+| 明文首块变体（带/不带空格、含 `Site.`） | 4 种 | 无 |
+
+因为 ECB 首块与“CBC + IV=0”的首块等价，上表也覆盖了 IV 为零的 CBC 情况。
+**结论：对称密钥不在客户端二进制或资源中，v2 解码必须服务端参与。**
+
+CloudKit 访问特性（实测）：
+
+- `records/lookup`（按 recordName 精确查询）→ **200，无需任何凭证**；
+- `records/query`（枚举）→ **401 AUTHENTICATION_FAILED**。
+
+即：只有拿到二维码（内含 recordName）的人能查到那一条规则，无法批量抓取——这正是“分享”的语义。
+但本地 `ZRECORDNAME` 是用户私有库副本，在 public 库中是 `NOT_FOUND`，所以光有本地记录名无法反查。
+
+### 1.4 2026-10-22 抓包验证
+
+用 Clash 控制接口（`/tmp/verge/verge-mihomo.sock`）监控真实扫码时的网络行为。
+
+方法：每 0.5 秒轮询 `/connections`，记录每个活动连接的目标域名 + 时间戳；同时用 `lsof` 记录 ComiGa 的 socket 活动。
+
+**扫码窗口内新出现的域名只有两个**：
+
+```text
+14:46:15  gateway.icloud.com       ← CloudKit 网关
+14:46:30  125.88.187.168           ← 站点 CDN
+```
+
+其余均为持续存在的长连接（网易系 App、百度等）与系统 iCloud 同步（`mask.icloud.com`、`setup.icloud.com`、`metrics.icloud.com`、`time.apple.com`）。
+
+**关键结论**：
+
+- **没有任何 Yealico 自建服务器参与** —— 扫码流程只与 Apple 的 CloudKit 通信；
+- 因此解密**不依赖**第三方服务端，理论上应在本地完成；
+- 但本地密钥搜索全部失败（§1.3），形成无法解释的矛盾。
+
+**额外排除**：
+
+- 载荷的 base64 / hex / base64url / 前 16 字节 hex / `Site.`+hex 五种编码直接作为 recordName 查询 CloudKit，均为 `NOT_FOUND`——载荷不是直接可用的记录名。
+- 容器内其他位置也查过：`work.cmbook.ComiGa.plist`（含 `userRole` 字段，测试后非密钥）、`CloudKit/cloudd_db/db`（仅 CloudKit 内部表，无规则数据）。
+- App 容器共 305 个文件，已扫描 376 个文件（含框架/资源），均未找到可用密钥。
+
 在这三种情况中，只有第 1 种能在不依赖 Yealico 服务的前提下离线兼容；第 2 种需要官方 API；第 3 种需要格式文档或规则明文对照。**没有证据前不猜密钥，也不把“扫码成功”当作“导入成功”。**
 
 ## 3. 兼容选项
@@ -71,7 +145,7 @@ Yealico QR Code: v2:ImJpWmDcnxYVUFVnmJTeQGK+gxDqQ54aXbjfZZYW95uwfyG8ZZieqthW0YRH
 | C. 支持 URL / 原始 JSON / 自有 scheme 的二维码 | 可立即做 | 不是 Yealico v2 兼容 | 先做解析层 |
 | D. Yealico 客户端 Edit 界面取证 | 可行 | 需要用户截图/复制字段 | iOS-only 可用，见 [yealico-rule-extraction.md](yealico-rule-extraction.md) |
 | E. macOS Yealico 容器 SQLite | 可行 | 需要 macOS 版 App | **开发/取证首选**，规则明文已落盘，见 [yealico-macos-sqlite.md](yealico-macos-sqlite.md) |
-| F. 逆向 Yealico 客户端提取密钥 | 不确定且合规风险高 | 需要明确授权 | 默认不做 |
+| F. 逆向 Yealico 客户端提取密钥 | **已尝试，不可行** | 全量搜索 1,400 万+ 候选均为 0 命中 | 密钥不在客户端，见 §1.3 |
 | G. 伪造“已兼容” | 不可接受 | 用户会拿到空结果 | 禁止 |
 
 ## 4. 当前实现
@@ -112,9 +186,9 @@ Yealico QR Code: v2:ImJpWmDcnxYVUFVnmJTeQGK+gxDqQ54aXbjfZZYW95uwfyG8ZZieqthW0YRH
 1. **优先用 macOS 容器 SQLite 取规则**：`ComiGa.sqlite` 的 `ZSITE`/`ZSITELISTRULE` 等表存明文 JSON；见 [yealico-macos-sqlite.md](yealico-macos-sqlite.md)。
 2. **iOS-only 用 Edit 取明文**：扫码后站点菜单 → Edit，按标签页截图/复制字段；步骤见 [yealico-rule-extraction.md](yealico-rule-extraction.md)。
 3. **这个二维码对应的规则 JSON**（脱敏即可）。有明文才能判断 v2 是否为可离线解码的加密包。
-4. **飞行模式测试**：在 Yealico 中开飞行模式扫描同一二维码，是否仍能添加站点？
-   - 仍可添加 → 更可能是本地解密，值得继续找算法；
-   - 不可添加 → 更可能是服务端 token，离线兼容不成立。
+4. ~~**飞行模式测试**：在 Yealico 中开飞行模式扫描同一二维码，是否仍能添加站点？~~
+   **已完成（2026-10-22）**：飞行模式下扫码报“网络错误”，与二进制里的 `To activate this QR Code, please ensure that the network is available.` 完全对应。
+   结合 §1.3 的密钥搜索（全量 0 命中），结论是 **v2 解码需要服务端参与，离线兼容不成立**。
 5. **2～3 组 QR + 规则 JSON 对照**，最好包含一个结构简单的静态站点。
 6. 若考虑逆向客户端，需要明确授权与合规边界；默认不做。
 
