@@ -1,10 +1,9 @@
 import {
   canLoadMorePages,
+  dominantIndex,
   imageHeaders,
-  nextMove,
   nextPageBudget,
   preloadTargets,
-  previousMove,
 } from '../src/app/ReaderScreen';
 import {
   buildRoutePlan,
@@ -13,26 +12,37 @@ import {
 } from '../src/engine';
 import type { RuleDocument, RuleFetcher } from '../src/engine';
 
-test('moves inside a chapter before crossing to another', () => {
-  expect(previousMove(2, 1)).toEqual({ kind: 'image', index: 1 });
-  expect(nextMove(1, 4, 1, 3)).toEqual({ kind: 'image', index: 2 });
+test('picks the image that covers the scroll offset', () => {
+  const blocks = [
+    { y: 0, height: 100 },
+    { y: 100, height: 200 },
+    { y: 300, height: 150 },
+  ];
+
+  expect(dominantIndex(0, blocks)).toBe(0);
+  expect(dominantIndex(99, blocks)).toBe(0);
+  expect(dominantIndex(100, blocks)).toBe(1);
+  expect(dominantIndex(299, blocks)).toBe(1);
+  expect(dominantIndex(300, blocks)).toBe(2);
+  expect(dominantIndex(9999, blocks)).toBe(2);
 });
 
-test('crosses chapters only at the chapter boundaries', () => {
-  expect(previousMove(0, 1)).toEqual({ kind: 'chapter', chapterIndex: 0 });
-  expect(nextMove(3, 4, 1, 3)).toEqual({ kind: 'chapter', chapterIndex: 2 });
+test('skips images whose layout is not ready', () => {
+  const blocks = [
+    undefined,
+    { y: 0, height: 100 },
+    undefined,
+    { y: 100, height: 50 },
+  ];
+
+  expect(dominantIndex(0, blocks)).toBe(1);
+  expect(dominantIndex(120, blocks)).toBe(3);
 });
 
-test('stops at the first and last chapter', () => {
-  expect(previousMove(0, 0)).toEqual({ kind: 'none' });
-  expect(nextMove(3, 4, 2, 3)).toEqual({ kind: 'none' });
-  expect(nextMove(0, 0, 0, 1)).toEqual({ kind: 'none' });
-});
-
-test('keeps image navigation when no chapter list is provided', () => {
-  expect(previousMove(0, -1)).toEqual({ kind: 'none' });
-  expect(nextMove(3, 4, -1, 0)).toEqual({ kind: 'none' });
-  expect(nextMove(0, 4, -1, 0)).toEqual({ kind: 'image', index: 1 });
+test('falls back to the first laid-out image or index zero', () => {
+  expect(dominantIndex(500, [])).toBe(0);
+  expect(dominantIndex(500, [undefined, undefined])).toBe(0);
+  expect(dominantIndex(500, [undefined, { y: 0, height: 10 }])).toBe(1);
 });
 
 test('preloads only the images ahead of the current one', () => {

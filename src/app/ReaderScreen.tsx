@@ -1,12 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 import { loadGalleryPages } from '../engine';
-import type {
-  ChapterItem,
-  RoutePlan,
-  RuleDocument,
-} from '../engine';
+import type { ChapterItem, RoutePlan, RuleDocument } from '../engine';
 import { errorText } from './diagnostics';
 import type { DebugSession } from './debugReport';
 import { progressKeyFor } from './readingProgress';
@@ -19,6 +23,10 @@ export const INITIAL_PAGE_BUDGET = 4;
 export const PAGE_BUDGET_STEP = 4;
 /** 当前图之后预热几张。 */
 export const PRELOAD_AHEAD = 2;
+/** 恢复进度时最多一次拉这么多页，避免长章节一次发几十个请求。 */
+export const MAX_RESTORE_BUDGET = 40;
+/** 图片实际尺寸未知前的占位宽高比（宽 / 高）。 */
+export const DEFAULT_ASPECT_RATIO = 0.7;
 
 /**
  * 预加载目标：只取当前图之后的若干张，不回头、不越界。
@@ -75,45 +83,33 @@ export function imageHeaders(
   return headers;
 }
 
-export type ReaderMove =
-  | { kind: 'image'; index: number }
-  | { kind: 'chapter'; chapterIndex: number }
-  | { kind: 'none' };
-
-/**
- * “上一张”的去向：章节内先回退；到第一张时若有上一章则跳章。
- */
-export function previousMove(
-  imageIndex: number,
-  chapterIndex: number,
-): ReaderMove {
-  if (imageIndex > 0) {
-    return { kind: 'image', index: imageIndex - 1 };
-  }
-  if (chapterIndex > 0) {
-    return { kind: 'chapter', chapterIndex: chapterIndex - 1 };
-  }
-  return { kind: 'none' };
+export interface ImageBlock {
+  y: number;
+  height: number;
 }
 
 /**
- * “下一张”的去向：章节内先前进；到最后一张时若有下一章则跳章。
+ * 连续滚动时判定“当前读到第几张”：取覆盖滚动位置上边缘的那张图。
  *
- * 注意：这里不判断“本章是否还有未加载页”，由调用方在前置层拦截。
+ * 布局未就绪的图跳过；全部未知时退回第一张有布局的图。
  */
-export function nextMove(
-  imageIndex: number,
-  imageCount: number,
-  chapterIndex: number,
-  chapterCount: number,
-): ReaderMove {
-  if (imageIndex < imageCount - 1) {
-    return { kind: 'image', index: imageIndex + 1 };
+export function dominantIndex(
+  offsetY: number,
+  blocks: (ImageBlock | undefined)[],
+): number {
+  const y = Math.max(0, offsetY);
+  let last: number | undefined;
+  for (let index = 0; index < blocks.length; index += 1) {
+    const block = blocks[index];
+    if (!block) {
+      continue;
+    }
+    last = index;
+    if (y < block.y + block.height) {
+      return index;
+    }
   }
-  if (chapterIndex >= 0 && chapterIndex < chapterCount - 1) {
-    return { kind: 'chapter', chapterIndex: chapterIndex + 1 };
-  }
-  return { kind: 'none' };
+  return last ?? 0;
 }
 
 export function ReaderScreen({
@@ -153,7 +149,16 @@ export function ReaderScreen({
     () => (chapterKey ? progress.get(siteId, chapterKey) : undefined),
     [chapterKey, progress, siteId],
   );
-  const [budget, setBudget] = useState(INITIAL_PAGE_BUDGET);
+  // 恢复点可能在页预算之外；首次加载直接拉到覆盖它，最多 MAX_RESTORE_BUDGET 页。
+  const initialBudget = useMemo(() => {
+    const target = restored?.index ?? 0;
+    return Math.min(
+      MAX_RESTORE_BUDGET,
+      Math.max(INITIAL_PAGE_BUDGET, target + 1),
+    );
+  }, [restored]);
+
+  const [budget, setBudget] = useState(initialBudget);
   const [retryToken, setRetryToken] = useState(0);
   const [images, setImages] = useState<string[]>([]);
   const [pages, setPages] = useState(0);
@@ -161,23 +166,31 @@ export function ReaderScreen({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [index, setIndex] = useState(() => Math.max(0, restored?.index ?? 0));
-  const [imageToken, setImageToken] = useState(0);
-  const [imageFailed, setImageFailed] = useState(false);
+  const [aspects, setAspects] = useState<Record<string, number>>({});
+  const [failed, setFailed] = useState<Record<number, boolean>>({});
+  const [tokens, setTokens] = useState<Record<number, number>>({});
+  const [laidOut, setLaidOut] = useState(0);
+  const [restoreDone, setRestoreDone] = useState(
+    !restored || restored.index <= 0,
+  );
   const [notice, setNotice] = useState(
     restored && restored.index > 0
       ? `已恢复上次进度：第 ${restored.index + 1} 张`
       : '',
   );
-  // 待恢复的目标位次。页预算可能还没拉够，到位前不写盘。
+
+  const scrollRef = useRef<ScrollView>(null);
+  const blocks = useRef<(ImageBlock | undefined)[]>([]);
   const restoreTarget = useRef<number | null>(
     restored && restored.index > 0 ? restored.index : null,
   );
+  const loadingMore = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError('');
-    setImageFailed(false);
+    setFailed({});
 
     if (!chapterUrl) {
       setImages([]);
@@ -263,25 +276,40 @@ export function ReaderScreen({
     }
   }, [images, index]);
 
-  // 恢复位次：图片够多才落位，避免受页预算限制时把位置改小。
   useEffect(() => {
-    const target = restoreTarget.current;
-    if (target === null || images.length === 0) {
+    loadingMore.current = false;
+  }, [images.length, pages]);
+
+  // 恢复：等目标图的布局就绪后滚到它的顶部；位次按图片索引，不保留图内像素偏移。
+  useEffect(() => {
+    if (restoreDone) {
       return;
     }
-    const clamped = Math.min(target, images.length - 1);
-    setIndex(clamped);
-    if (clamped === target) {
-      restoreTarget.current = null;
+    const target = restoreTarget.current;
+    if (target === null) {
+      setRestoreDone(true);
+      return;
     }
-  }, [images.length]);
+    const clamped = Math.min(target, Math.max(0, images.length - 1));
+    const block = blocks.current[clamped];
+    if (!block) {
+      return;
+    }
+    restoreTarget.current = null;
+    scrollRef.current?.scrollTo({ y: Math.max(0, block.y), animated: false });
+    setNotice(`已恢复上次进度：第 ${target + 1} 张`);
+    setRestoreDone(true);
+  }, [images.length, laidOut, restoreDone]);
 
-  // 只在用户真正翻页后写盘；恢复期间不覆盖已有进度。
+  // 恢复完成前不写盘，避免把页预算内的临时位次覆盖掉真实进度。
   useEffect(() => {
+    if (!restoreDone) {
+      return;
+    }
     if (!chapterKey || !chapterUrl || images.length === 0) {
       return;
     }
-    if (restoreTarget.current !== null || index >= images.length) {
+    if (index >= images.length) {
       return;
     }
     progress.save({
@@ -293,35 +321,87 @@ export function ReaderScreen({
       index,
       total: images.length,
     });
-  }, [chapter, chapterKey, chapterUrl, images.length, index, progress, siteId]);
+  }, [
+    chapter,
+    chapterKey,
+    chapterUrl,
+    images.length,
+    index,
+    progress,
+    restoreDone,
+    siteId,
+  ]);
 
-  const goTo = (next: number): void => {
-    restoreTarget.current = null;
-    setNotice('');
-    setIndex(next);
-  };
-
-  const applyMove = (move: ReaderMove): void => {
-    if (move.kind === 'image') {
-      goTo(move.index);
-    } else if (move.kind === 'chapter') {
-      onSelectChapter?.(move.chapterIndex);
-    }
-  };
-
-  const currentUri = images[index];
   const moreBudget = canLoadMorePages(pages, totalPages)
     ? nextPageBudget(pages, totalPages ?? pages)
     : 0;
   const chapterCount = chapters.length;
   const hasChapterNav = chapterIndex >= 0 && chapterCount > 0;
-  const previous = previousMove(index, chapterIndex);
-  // 本章还有未加载页时，最后一张不能直接跳到下一章，否则会跳过内容。
+  const hasPrevChapter = hasChapterNav && chapterIndex > 0;
   const chapterHasMorePages = canLoadMorePages(pages, totalPages);
-  const next =
-    index >= images.length - 1 && chapterHasMorePages
-      ? ({ kind: 'none' } as ReaderMove)
-      : nextMove(index, images.length, chapterIndex, chapterCount);
+  const hasNextChapter = hasChapterNav && chapterIndex < chapterCount - 1;
+
+  const maybeLoadMore = (): void => {
+    if (loadingMore.current || loading) {
+      return;
+    }
+    if (!canLoadMorePages(pages, totalPages)) {
+      return;
+    }
+    loadingMore.current = true;
+    setBudget(nextPageBudget(pages, totalPages ?? pages));
+  };
+
+  const handleScroll = (
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ): void => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const atBottom =
+      images.length > 0 &&
+      contentOffset.y + layoutMeasurement.height >=
+        contentSize.height - 32;
+    if (atBottom) {
+      // 最后一张很高时，视口上缘可能还停在上一张；到底就认最后一张。
+      setIndex(images.length - 1);
+    } else {
+      const nextIndex = dominantIndex(contentOffset.y, blocks.current);
+      setIndex(current => (current === nextIndex ? current : nextIndex));
+    }
+    const nearBottom =
+      contentOffset.y + layoutMeasurement.height >= contentSize.height - 400;
+    if (nearBottom) {
+      maybeLoadMore();
+    }
+  };
+
+  const handleImageLoad = (uri: string, event: {
+    nativeEvent: unknown;
+  }): void => {
+    const native = event.nativeEvent as {
+      source?: { width?: number; height?: number };
+    };
+    const width = native.source?.width ?? 0;
+    const height = native.source?.height ?? 0;
+    if (width <= 0 || height <= 0) {
+      return;
+    }
+    const ratio = width / height;
+    setAspects(current =>
+      current[uri] === ratio ? current : { ...current, [uri]: ratio },
+    );
+  };
+
+  const retryImage = (position: number): void => {
+    setFailed(current => {
+      const next = { ...current };
+      delete next[position];
+      return next;
+    });
+    setTokens(current => ({
+      ...current,
+      [position]: (current[position] ?? 0) + 1,
+    }));
+  };
 
   return (
     <View style={styles.root}>
@@ -348,67 +428,86 @@ export function ReaderScreen({
       ) : null}
 
       {images.length > 0 ? (
-        <>
-          <View style={styles.stage}>
-            {currentUri ? (
+        <ScrollView
+          ref={scrollRef}
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          onScroll={handleScroll}
+          onScrollBeginDrag={() => {
+            if (notice) {
+              setNotice('');
+            }
+          }}
+          scrollEventThrottle={32}
+          onContentSizeChange={() => setLaidOut(current => current + 1)}>
+          {images.map((uri, position) => (
+            <View
+              key={`${position}:${uri}`}
+              style={styles.block}
+              onLayout={event => {
+                const { y, height } = event.nativeEvent.layout;
+                const previous = blocks.current[position];
+                if (previous && previous.y === y && previous.height === height) {
+                  return;
+                }
+                blocks.current[position] = { y, height };
+                setLaidOut(current => current + 1);
+              }}>
               <Image
-                key={`${index}-${imageToken}`}
-                source={{ uri: currentUri, headers }}
-                style={styles.image}
+                key={tokens[position] ?? 0}
+                source={{ uri, headers }}
+                style={[
+                  styles.image,
+                  { aspectRatio: aspects[uri] ?? DEFAULT_ASPECT_RATIO },
+                ]}
                 resizeMode="contain"
-                onLoad={() => setImageFailed(false)}
-                onError={() => setImageFailed(true)}
+                onLoad={event => handleImageLoad(uri, event)}
+                onError={() =>
+                  setFailed(current =>
+                    current[position] ? current : { ...current, [position]: true },
+                  )
+                }
               />
-            ) : null}
-            {imageFailed ? (
-              <View style={styles.overlay}>
-                <Text style={styles.error}>这一张加载失败</Text>
-                <Pressable
-                  onPress={() => {
-                    setImageFailed(false);
-                    setImageToken(token => token + 1);
-                  }}
-                  style={styles.button}>
-                  <Text style={styles.buttonText}>重试这一张</Text>
-                </Pressable>
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.controls}>
-            <Pressable
-              onPress={() => applyMove(previous)}
-              disabled={previous.kind === 'none'}
-              style={[
-                styles.button,
-                previous.kind === 'none' && styles.buttonDisabled,
-              ]}>
-              <Text style={styles.buttonText}>
-                {previous.kind === 'chapter' ? '‹ 上一章' : '上一张'}
-              </Text>
-            </Pressable>
-            <Text style={styles.counter}>{index + 1}</Text>
-            <Pressable
-              onPress={() => applyMove(next)}
-              disabled={next.kind === 'none'}
-              style={[styles.button, next.kind === 'none' && styles.buttonDisabled]}>
-              <Text style={styles.buttonText}>
-                {next.kind === 'chapter' ? '下一章 ›' : '下一张'}
-              </Text>
-            </Pressable>
-          </View>
-          {index >= images.length - 1 && chapterHasMorePages ? (
-            <Text style={styles.notice}>本章还有未加载页，点「继续加载」</Text>
-          ) : null}
-        </>
+              {failed[position] ? (
+                <View style={styles.blockError}>
+                  <Text style={styles.error}>这一张加载失败</Text>
+                  <Pressable
+                    onPress={() => retryImage(position)}
+                    style={styles.button}>
+                    <Text style={styles.buttonText}>重试这一张</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </View>
+          ))}
+        </ScrollView>
       ) : null}
 
       <View style={styles.controls}>
+        {hasChapterNav ? (
+          <Pressable
+            onPress={() => onSelectChapter?.(chapterIndex - 1)}
+            disabled={!hasPrevChapter}
+            style={[styles.button, !hasPrevChapter && styles.buttonDisabled]}>
+            <Text style={styles.buttonText}>‹ 上一章</Text>
+          </Pressable>
+        ) : null}
         {moreBudget > 0 ? (
           <Pressable onPress={() => setBudget(moreBudget)} style={styles.button}>
             <Text style={styles.buttonText}>
               继续加载（{pages}/{totalPages} 页）
             </Text>
+          </Pressable>
+        ) : null}
+        {hasChapterNav ? (
+          <Pressable
+            onPress={() => onSelectChapter?.(chapterIndex + 1)}
+            disabled={!hasNextChapter || chapterHasMorePages}
+            style={[
+              styles.button,
+              (!hasNextChapter || chapterHasMorePages) && styles.buttonDisabled,
+            ]}>
+            <Text style={styles.buttonText}>下一章 ›</Text>
           </Pressable>
         ) : null}
         <Pressable
@@ -417,6 +516,9 @@ export function ReaderScreen({
           <Text style={styles.buttonText}>重新加载</Text>
         </Pressable>
       </View>
+      {chapterHasMorePages ? (
+        <Text style={styles.notice}>本章还有未加载页，点「继续加载」</Text>
+      ) : null}
     </View>
   );
 }
@@ -460,19 +562,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 8,
   },
-  stage: {
+  scroll: {
     flex: 1,
-    minHeight: 260,
     backgroundColor: '#0b1220',
     borderRadius: 6,
+  },
+  scrollContent: {
+    paddingBottom: 12,
+  },
+  block: {
+    width: '100%',
     justifyContent: 'center',
-    overflow: 'hidden',
   },
   image: {
-    flex: 1,
     width: '100%',
   },
-  overlay: {
+  blockError: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
@@ -484,12 +589,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexWrap: 'wrap',
     marginTop: 10,
-  },
-  counter: {
-    color: '#e2e8f0',
-    fontSize: 13,
-    minWidth: 34,
-    textAlign: 'center',
   },
   button: {
     backgroundColor: '#1e293b',
