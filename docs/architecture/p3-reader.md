@@ -2,7 +2,7 @@
 
 - 记录日期：2026-10-21
 - 范围：详情页章节入口、`loadGalleryPages` 的界面编排、单页阅读模式、页预算、图片预加载与失败重试。
-- 状态：**Jest 覆盖已跑通；Android 真机/模拟器未验收**（本轮只做了 Node/Jest 验证）。
+- 状态：**单页阅读与章节连读的 Jest 覆盖已跑通；单页阅读已在 Android 模拟器验收，章节连读未上设备**。
 
 ## 1. 已实现
 
@@ -10,7 +10,7 @@
 
 `DetailScreen` 的章节行从纯展示改成 `Pressable`：
 
-- 点击后把 `ChapterItem` 交给 `ReaderScreen`，详情页本身保持挂载，返回即回到详情；
+- 点击后记录**章节索引**，由 `ReaderScreen` 按 `chapters[chapterIndex]` 渲染；详情页本身保持挂载，返回即回到详情；
 - `chapter.url` 为空（`chapterRule` 没解析出地址）时按钮 `disabled`，并显示“缺少章节地址”而不是静默失败；
 - 章节列表仍只渲染前 30 条，超出部分提示条数。
 
@@ -72,18 +72,26 @@ ReaderScreen
 
 `errorText` 原来在 `SiteWorkspace` 和 `DetailScreen` 各有一份，阅读器是第三个调用方，抽到 `src/app/diagnostics.ts`。行为不变：只取 `severity === 'error'` 的前 3 条。
 
+### 1.7 章节连读
+
+- 阅读器接收完整 `chapters` 与当前 `chapterIndex`，顶部显示“第 N / M 章”。
+- 章内继续用“上一张 / 下一张”；到边界时按钮变成“‹ 上一章 / 下一章 ›”，点击切换章节。
+- 切换通过 `key={chapterIndex}` 重建 `ReaderScreen`，每个章节各自按已有进度恢复，不会把上一章的位置写进下一章。
+- 本章还有未加载页时，最后一张不跳章，提示“本章还有未加载页，点「继续加载」”，避免跳过内容。
+- 纯函数 `previousMove` / `nextMove` 负责边界判断，`__tests__/reader.test.ts` 覆盖章内、章间、首尾章和无章节列表四种情况。
+
 ## 2. 取舍与已知边界
 
 - **“继续加载”会重发前几页**：预算重跑整段 `loadGalleryPages`，前几页是重复请求。换来的是不用改引擎的分页编排；图片按 URL 去重，不会重复显示。
 - **只有一种阅读模式**：单页翻页。连续滚动、双页、RTL 未做。
-- **章节间不连读**：读完一章回到详情，没有“下一章”。
+- **没有章节目录跳转**：只在相邻章节间连读，长章节列表仍只展示前 30 条；没有目录/跳章选择器。
 - **进度只记章内位置**：记录的是“第几张图”，不是滚动偏移；改成连续滚动模式后需要重新定义。
 - **`totalPages` 缺失的站点只加载第 1 页**：漫画柜这类“首图页直出全部 image”的规则正好覆盖；但真正的多页画廊如果规则缺 `totalPages`，阅读器只能看到第一页的图像。
 - **`loadGalleryPages` 是串行请求**：章内页之间没有并发，页数多时首屏会慢，后续要改成按页懒加载。
 
 ## 3. 测试
 
-`__tests__/reader.test.ts`（6 个用例）和 `__tests__/reading-progress.test.ts`（11 个用例）：
+`__tests__/reader.test.ts`（10 个用例）和 `__tests__/reading-progress.test.ts`（11 个用例）：
 
 - `preloadTargets`：只取当前图之后、窗口越界与负数索引；
 - `canLoadMorePages`：总页数已知/未知/已到顶；
@@ -92,11 +100,10 @@ ReaderScreen
 - 端到端：`executeDetail` 产出 `chapter.url` 模板 → `loadGalleryPages` 展开 `#p=1` / `#p=2` → 两张图按顺序去重；
 - 进度：`idCode` 优先于 URL、旧格式迁移、脏数据丢弃、envelope 往返、upsert 去重、无变化不写、缺稳定 ID 不存、删站点/删章节、单站点上限裁剪（时间戳相同时按写入顺序）、章节行文案。
 
-当前整体：**23 个 suite、110 个用例**；`npm run typecheck`、`npm run lint` 通过。
+当前整体：**22 个 suite、113 个用例**；`npm run typecheck`、`npm run lint` 通过。
 
 ## 4. 还没做
 
-- 章节连读、章节间跳转；
 - 连续滚动 / 双页模式；
-- 进度已在 Android 上验证：翻到第 3 张 → 详情显示「已读 3 / 4 张」→ 冷重启后重进章节直接停在 `3 / 4` 并提示已恢复；
+- 章节目录跳转：当前只在相邻章节间连读，章节列表仍只展示前 30 条；
 - 图片磁盘缓存与内存上限。

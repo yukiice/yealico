@@ -75,6 +75,47 @@ export function imageHeaders(
   return headers;
 }
 
+export type ReaderMove =
+  | { kind: 'image'; index: number }
+  | { kind: 'chapter'; chapterIndex: number }
+  | { kind: 'none' };
+
+/**
+ * “上一张”的去向：章节内先回退；到第一张时若有上一章则跳章。
+ */
+export function previousMove(
+  imageIndex: number,
+  chapterIndex: number,
+): ReaderMove {
+  if (imageIndex > 0) {
+    return { kind: 'image', index: imageIndex - 1 };
+  }
+  if (chapterIndex > 0) {
+    return { kind: 'chapter', chapterIndex: chapterIndex - 1 };
+  }
+  return { kind: 'none' };
+}
+
+/**
+ * “下一张”的去向：章节内先前进；到最后一张时若有下一章则跳章。
+ *
+ * 注意：这里不判断“本章是否还有未加载页”，由调用方在前置层拦截。
+ */
+export function nextMove(
+  imageIndex: number,
+  imageCount: number,
+  chapterIndex: number,
+  chapterCount: number,
+): ReaderMove {
+  if (imageIndex < imageCount - 1) {
+    return { kind: 'image', index: imageIndex + 1 };
+  }
+  if (chapterIndex >= 0 && chapterIndex < chapterCount - 1) {
+    return { kind: 'chapter', chapterIndex: chapterIndex + 1 };
+  }
+  return { kind: 'none' };
+}
+
 export function ReaderScreen({
   siteName,
   siteId,
@@ -82,6 +123,9 @@ export function ReaderScreen({
   rule,
   plan,
   chapter,
+  chapters = [],
+  chapterIndex = -1,
+  onSelectChapter,
   progress,
   debug,
   onBack,
@@ -92,6 +136,11 @@ export function ReaderScreen({
   rule: RuleDocument;
   plan: RoutePlan;
   chapter: ChapterItem;
+  /** 当前详情页的完整章节列表，用于跨章连读。 */
+  chapters?: ChapterItem[];
+  /** 当前章节在列表中的下标；-1 表示不提供章节导航。 */
+  chapterIndex?: number;
+  onSelectChapter?: (index: number) => void;
   progress: ReadingProgressRepository;
   debug: DebugSession;
   onBack: () => void;
@@ -252,10 +301,27 @@ export function ReaderScreen({
     setIndex(next);
   };
 
+  const applyMove = (move: ReaderMove): void => {
+    if (move.kind === 'image') {
+      goTo(move.index);
+    } else if (move.kind === 'chapter') {
+      onSelectChapter?.(move.chapterIndex);
+    }
+  };
+
   const currentUri = images[index];
   const moreBudget = canLoadMorePages(pages, totalPages)
     ? nextPageBudget(pages, totalPages ?? pages)
     : 0;
+  const chapterCount = chapters.length;
+  const hasChapterNav = chapterIndex >= 0 && chapterCount > 0;
+  const previous = previousMove(index, chapterIndex);
+  // 本章还有未加载页时，最后一张不能直接跳到下一章，否则会跳过内容。
+  const chapterHasMorePages = canLoadMorePages(pages, totalPages);
+  const next =
+    index >= images.length - 1 && chapterHasMorePages
+      ? ({ kind: 'none' } as ReaderMove)
+      : nextMove(index, images.length, chapterIndex, chapterCount);
 
   return (
     <View style={styles.root}>
@@ -266,6 +332,7 @@ export function ReaderScreen({
         {chapter.title ?? chapter.idCode ?? siteName}
       </Text>
       <Text style={styles.meta}>
+        {hasChapterNav ? `第 ${chapterIndex + 1} / ${chapterCount} 章  ·  ` : ''}
         {images.length > 0 ? `${index + 1} / ${images.length} 图` : '暂无图片'}
         {`  ·  已载 ${pages} 页`}
         {totalPages ? ` / ${totalPages}` : ''}
@@ -310,22 +377,29 @@ export function ReaderScreen({
 
           <View style={styles.controls}>
             <Pressable
-              onPress={() => goTo(Math.max(0, index - 1))}
-              disabled={index <= 0}
-              style={[styles.button, index <= 0 && styles.buttonDisabled]}>
-              <Text style={styles.buttonText}>上一张</Text>
+              onPress={() => applyMove(previous)}
+              disabled={previous.kind === 'none'}
+              style={[
+                styles.button,
+                previous.kind === 'none' && styles.buttonDisabled,
+              ]}>
+              <Text style={styles.buttonText}>
+                {previous.kind === 'chapter' ? '‹ 上一章' : '上一张'}
+              </Text>
             </Pressable>
             <Text style={styles.counter}>{index + 1}</Text>
             <Pressable
-              onPress={() => goTo(Math.min(images.length - 1, index + 1))}
-              disabled={index >= images.length - 1}
-              style={[
-                styles.button,
-                index >= images.length - 1 && styles.buttonDisabled,
-              ]}>
-              <Text style={styles.buttonText}>下一张</Text>
+              onPress={() => applyMove(next)}
+              disabled={next.kind === 'none'}
+              style={[styles.button, next.kind === 'none' && styles.buttonDisabled]}>
+              <Text style={styles.buttonText}>
+                {next.kind === 'chapter' ? '下一章 ›' : '下一张'}
+              </Text>
             </Pressable>
           </View>
+          {index >= images.length - 1 && chapterHasMorePages ? (
+            <Text style={styles.notice}>本章还有未加载页，点「继续加载」</Text>
+          ) : null}
         </>
       ) : null}
 

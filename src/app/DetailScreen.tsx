@@ -82,7 +82,7 @@ export function DetailScreen({
   const [detail, setDetail] = useState<DetailResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [chapter, setChapter] = useState<ChapterItem | null>(null);
+  const [chapterIndex, setChapterIndex] = useState<number | null>(null);
   const detailUrl = detailUrlFor(rule, item, domain);
 
   useEffect(() => {
@@ -140,18 +140,26 @@ export function DetailScreen({
     };
   }, [debug, detailUrl, domain, fetcher, item, plan, rule]);
 
-  if (chapter) {
+  const chapters = detail?.chapters ?? [];
+  const activeChapter =
+    chapterIndex === null ? undefined : chapters[chapterIndex];
+
+  if (activeChapter && chapterIndex !== null) {
     return (
       <ReaderScreen
+        key={chapterIndex}
         siteName={siteName}
         siteId={siteId}
         domain={domain}
         rule={rule}
         plan={plan}
-        chapter={chapter}
+        chapter={activeChapter}
+        chapters={chapters}
+        chapterIndex={chapterIndex}
+        onSelectChapter={setChapterIndex}
         progress={progress}
         debug={debug}
-        onBack={() => setChapter(null)}
+        onBack={() => setChapterIndex(null)}
       />
     );
   }
@@ -159,7 +167,6 @@ export function DetailScreen({
   const title = detail?.fields.title ?? item.title ?? siteName;
   const cover = detail?.fields.cover ?? item.cover;
   const pictures = detail?.pictures ?? [];
-  const chapters = detail?.chapters ?? [];
   const detailState = contentState(detail ? 1 : 0, error);
 
   return (
@@ -196,7 +203,7 @@ export function DetailScreen({
               {chapters.slice(0, 30).map((entry, index) => (
                 <Pressable
                   key={entry.idCode ?? entry.url ?? `${index}`}
-                  onPress={() => setChapter(entry)}
+                  onPress={() => setChapterIndex(index)}
                   disabled={typeof entry.url !== 'string' || !entry.url}
                   style={styles.chapterRow}>
                   <Text style={styles.chapterTitle}>

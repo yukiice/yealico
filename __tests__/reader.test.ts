@@ -1,8 +1,10 @@
 import {
   canLoadMorePages,
   imageHeaders,
+  nextMove,
   nextPageBudget,
   preloadTargets,
+  previousMove,
 } from '../src/app/ReaderScreen';
 import {
   buildRoutePlan,
@@ -10,6 +12,28 @@ import {
   loadGalleryPages,
 } from '../src/engine';
 import type { RuleDocument, RuleFetcher } from '../src/engine';
+
+test('moves inside a chapter before crossing to another', () => {
+  expect(previousMove(2, 1)).toEqual({ kind: 'image', index: 1 });
+  expect(nextMove(1, 4, 1, 3)).toEqual({ kind: 'image', index: 2 });
+});
+
+test('crosses chapters only at the chapter boundaries', () => {
+  expect(previousMove(0, 1)).toEqual({ kind: 'chapter', chapterIndex: 0 });
+  expect(nextMove(3, 4, 1, 3)).toEqual({ kind: 'chapter', chapterIndex: 2 });
+});
+
+test('stops at the first and last chapter', () => {
+  expect(previousMove(0, 0)).toEqual({ kind: 'none' });
+  expect(nextMove(3, 4, 2, 3)).toEqual({ kind: 'none' });
+  expect(nextMove(0, 0, 0, 1)).toEqual({ kind: 'none' });
+});
+
+test('keeps image navigation when no chapter list is provided', () => {
+  expect(previousMove(0, -1)).toEqual({ kind: 'none' });
+  expect(nextMove(3, 4, -1, 0)).toEqual({ kind: 'none' });
+  expect(nextMove(0, 4, -1, 0)).toEqual({ kind: 'image', index: 1 });
+});
 
 test('preloads only the images ahead of the current one', () => {
   const images = ['a', 'b', 'c', 'd'];
