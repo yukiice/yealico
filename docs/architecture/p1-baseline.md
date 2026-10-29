@@ -81,17 +81,17 @@ P1 在模拟器上发现：RN/Hermes 的全局 `new URL(relative, base)` 不做�
 - `loadDetail`：详情 → `photoAlbumLink` → `pictureRule.link` 的顺序加载；`executePicturePage` 解析图片页。
 - `totalImages` + `{page:}`：详情页图片模板展开（上限 500，缺总数告警）。
 - URL 字段默认绝对化；`attr` 多属性按顺序取第一个非空；`{domain:}` 在 regex/replacement 中展开。
-- `parseQrPayload`：识别 Yealico `v2:` opaque 载荷、加密导出 `{"encrypted":"v2:..."}`、规则 URL、原始 JSON、`yealico://`；不猜解密，不把扫码成功当导入成功。
+- ~~`parseQrPayload`：识别 Yealico `v2:` opaque 载荷、加密导出 `{"encrypted":"v2:..."}`、规则 URL、原始 JSON、`yealico://`~~：2026-10-22 随二维码功能一起移除；加密导出仍由导入层报 `UNSUPPORTED_ENCRYPTED_EXPORT`。
 - `scripts/extract_yealico_rules.py`：从 macOS Yealico 容器的 SQLite 只读提取规则；不读 Cookie/账号/历史。
 - `toRuleDocument`：把提取结构转成项目 `RuleDocument`。
 - 真实规则：本机提取 6 个站点，含禁漫 2.26、阿巴基猫 2.4。
-- 合成 fixture 5 组：列表、图库、JSON、不支持能力、QR 载荷。
+- 合成 fixture 4 组：列表、图库、JSON、不支持能力。
 
 明确未实现：
 
 - Android 真实规则执行、UI 阅读器与翻页。
 - WebView、登录、consent、Cookie、图片加载。
-- Yealico QR `v2:` 的实际解码与相机扫码 UI。
+- ~~Yealico QR `v2:` 的实际解码与相机扫码 UI。~~ 已关闭：v2 是 CloudKit 引用，离线不可解码，扫码功能已移除。
 - `+` 多 JSONPath、`$root` 完整语法、数学表达式（P2）。
 - GBK/Big5 解码与 GBK URL 编码。
 - 真实站点的在线抓取（禁漫等成人站点不做未授权抓取）。
@@ -109,8 +109,8 @@ Node 侧结果（2026-10-20）：
 
 - lint：0 error / 0 warning。
 - typecheck：通过（应用配置 + 测试配置）。
-- Jest：23 个 suite、110 个用例全部通过（含站点页面/列表/详情 URL/章节阅读/进度持久化/调试页/展示状态/分页总数）。
-- 覆盖：golden fixture、分页/URL 占位符、函数链、regex、受限 JSONPath、QR、真实 `List: recently`、Detail/Gallery、chapter URL 模板、attr fallback、分页编排与去重、pages、二级页、totalImages、直接 image 集合、WebView、fetch 超时与网络探针。
+- Jest：P1 时 23 个 suite、110 个用例全部通过（当前 22 suite / 109 用例，QR 用例已移除）。
+- 覆盖：golden fixture、分页/URL 占位符、函数链、regex、受限 JSONPath、真实 `List: recently`、Detail/Gallery、chapter URL 模板、attr fallback、分页编排与去重、pages、二级页、totalImages、直接 image 集合、WebView、fetch 超时与网络探针。
 
 真实规则验证（2026-10-20）：
 
@@ -125,7 +125,7 @@ Android 侧结果（2026-10-20）：
 - 设备：`sdk_gphone64_arm64`，API 36，arm64-v8a；AVD `RN_Test`。
 - 构建：`./gradlew assembleDebug` 成功，`app-debug.apk` 约 101 MB（debug，未压缩/未混淆）。
 - 启动：Metro + `adb reverse tcp:8081`，logcat 出现 `ReactNativeJS: Running "Yealico"`。
-- 自检页：P1 时 `全部通过 (10)`，含 3 条 QR 检查（v2 识别、64 bytes、要求规则 JSON/URL）；截图 `artifacts/p1-android-pass.png`。
+- 自检页：P1 时 `全部通过 (10)`，含 3 条 QR 检查（v2 识别、64 bytes、要求规则 JSON/URL，2026-10-22 已移除）；截图 `artifacts/p1-android-pass.png`。
 - 首次运行失败证据：`artifacts/p1-android.png`（URL 拼接错误），修复后重新验证。
 - 基准（20 次，合成 fixture）：
 
@@ -161,7 +161,7 @@ P2 Android 验证（2026-10-21，API 36 / arm64-v8a）：
 | GBK/Big5 解码 | 待跑 | 需要编码表或原生能力 |
 | 图片请求头与 Cookie 共享 | 待跑 | P1 探针，不实现 UI |
 | fetch 的 Set-Cookie / 最终 URL | 待跑 | P1 探针，决定是否加 Kotlin 模块 |
-| Yealico QR `v2:` 载荷 | 已识别；解码阻塞 | API36 10/10 识别；可用 [Yealico Edit 取证](../rules/yealico-rule-extraction.md)，但不能自动导入 |
+| Yealico QR `v2:` 载荷 | 已移除 | 2026-10-22 确认是 CloudKit 引用，离线不可解码；扫码与解析层已删除，见 [qr-import](../rules/qr-import.md) |
 | Yealico 加密导出 JSON | 已识别 | 3840 bytes 高熵；报 `UNSUPPORTED_ENCRYPTED_EXPORT`，见 [export-format](../rules/yealico-export-format.md) |
 | 1 MB HTML 解析耗时/阻塞 | 待跑 | 记录 P95 与掉帧 |
 | 真实规则兼容 | 部分完成 | 6 条已提取；禁漫 RoutePlan 无 invalid/unknown；阿巴基 118 条 |

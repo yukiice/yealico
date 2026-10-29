@@ -2,7 +2,7 @@
 
 - 样本来源：用户提供的导出内容（单个 JSON 对象）。
 - 记录日期：2026-10-20
-- 关联：[QR 导入格式](qr-import.md)、[客户端取明文](yealico-rule-extraction.md)、[待确认项](open-questions.md)
+- 关联：[QR 研究结论](qr-import.md)、[客户端取明文](yealico-rule-extraction.md)、[待确认项](open-questions.md)
 
 ## 1. 外层结构
 
@@ -58,17 +58,19 @@
 
 ## 5. 当前处理
 
-`parseQrPayload` 已识别该外层：
+`src/app/ruleImport.ts` 的 `parseRuleJson` 会先看外层：
 
-- 普通规则 JSON → `rule-json`；
-- `{ "encrypted": "v2:..." }` → `unsupported`，错误码 **`UNSUPPORTED_ENCRYPTED_EXPORT`**；
+- 普通规则 JSON → 按 `RuleDocument` / 提取结构导入；
+- `{ "encrypted": "v2:..." }` → 错误码 **`UNSUPPORTED_ENCRYPTED_EXPORT`**；
 - 不会把加密导出误判成规则，也不会静默返回空站点。
 
-测试：`__tests__/qr.test.ts` 已覆盖该分支；Node 侧 20 个用例通过。
+（原 `parseQrPayload` 已随二维码功能删除，导出识别不依赖它。）
+
+测试：`__tests__/rule-import.test.ts` 覆盖加密导出外层；Node 侧用例通过。
 
 ## 6. 需要补充的配对实验
 
-最有价值的是**同一规则的三件套**：
+二维码导入功能已移除，本节只影响**导出解密**（不影响现有导入路径：明文 JSON / 规则 URL）。如果将来要解导出文件，最有价值的仍是**同一规则的三件套**：
 
 1. 该规则的二维码载荷（`Yealico QR Code: v2:...`）；
 2. 该规则的加密导出 JSON；

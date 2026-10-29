@@ -34,7 +34,7 @@
 | Q25 | `pictureRule.link` 定义了二级页时，`url` 在二级页执行，`thumbnail` 在原页执行？ | 取图链路 | 已实现 `link` → `url` 二级链路；`thumbnail` 仍未实现 | 真实样本 | `__tests__/second-level.test.ts` | 部分实现，待样本确认 |
 | Q26 | `item` 等字段是否允许字符串简写（如 `"item": "li.item"`）？ | 规则读取与兼容 | 接受字符串简写为 `{selector}`；对象形式优先 | 真实样本 | 待补 | 未确认 |
 | Q27 | JSONPath 的 `..`、`[?(...)]`、切片、联合是否首版支持？ | JSONPath 执行器 | 不支持，报 `UNSUPPORTED_JSONPATH`；需要时再实现受限子集 | 真实样本 | 待补 | 未确认 |
-| Q28 | Yealico QR `v2:` 载荷如何解码？密钥/算法在客户端还是服务端？ | QR 导入 | QR 载荷不猜解密；优先从 macOS SQLite / Edit 取明文 | macOS SQLite + Edit 截图；飞行模式判断本地/服务端 | [yealico-macos-sqlite.md](yealico-macos-sqlite.md) | 已可行 |
+| Q28 | Yealico QR `v2:` 载荷如何解码？密钥/算法在客户端还是服务端？ | QR 导入 | 已关闭：v2 是 CloudKit 引用，密钥不在客户端，扫码必须联网；功能与解析层已移除 | 密钥搜索全量 0 命中 + 抓包只有 gateway.icloud.com + 飞行模式失败 | [qr-import.md](qr-import.md) | 已关闭（不可离线解码） |
 | Q29 | Yealico 导出的 `{"encrypted":"v2:..."}` 如何解密？QR 是否提供密钥？ | 导出/导入 | 识别为加密导出并报 `UNSUPPORTED_ENCRYPTED_EXPORT`；不猜密钥 | 同规则 QR + 导出 + Edit 明文三件套；跨设备导入 | [yealico-export-format.md](yealico-export-format.md) | 不影响主路径 |
 | Q30 | macOS Yealico 容器 schema 是否随版本变化？ | 规则提取 | 当前 7.2.4 已验证；升级后重新核对列名 | 版本升级 | [yealico-macos-sqlite.md](yealico-macos-sqlite.md) | 未确认 |
 

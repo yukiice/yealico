@@ -36,8 +36,6 @@ export type {
   RuleRequest,
   RuleResponse,
 } from './load';
-export { parseQrPayload } from './qr';
-export type { QrPayload, QrPayloadKind } from './qr';
 export {
   firstDisplayMode,
   parseFlagString,

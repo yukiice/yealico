@@ -1,7 +1,6 @@
 import { executeDetail, executeGallery, executeList } from './execute';
 import { FIXTURE_JSON } from './fixtures.generated';
 import { buildPagePlan, buildRoutePlan } from './plan';
-import { parseQrPayload } from './qr';
 import type { Diagnostic, RuleDocument } from './types';
 
 /**
@@ -124,19 +123,6 @@ export function runSelftest(): SelftestResult[] {
         'unsupported: diagnostics',
         codes(plan.unsupported),
         expected.unsupported.map(item => `${item.code}:${item.fieldPath}`).sort(),
-      ),
-    );
-  }
-
-  {
-    const payload = parseQrPayload(FIXTURE_JSON.qr.payload);
-    results.push(compare('qr: Yealico v2 recognized', payload.kind, 'yealico-v2'));
-    results.push(compare('qr: v2 payload bytes', payload.bytes, 64));
-    results.push(
-      compare(
-        'qr: v2 requires rule json/url',
-        payload.diagnostics[0]?.code,
-        'UNSUPPORTED_QR_PAYLOAD',
       ),
     );
   }

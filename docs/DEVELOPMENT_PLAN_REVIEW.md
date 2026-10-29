@@ -291,19 +291,19 @@ P5 回归与交付
 
 如果用户能提供 3～5 份真实规则样本，P0b 与 P3 的真实兼容验收可以立即补齐；在此之前，所有真实站点结论保持“待验证”。
 
-## 8. 补充：QR 导入（2026-10-20）
+## 8. 补充：QR 导入（2026-10-20，2026-10-22 已关闭）
 
 用户补充：Yealico 通过扫描二维码添加站点，规则作者也以二维码分发。样本解码为 `Yealico QR Code: v2:<base64>`；base64 解码是 64 bytes 的不透明数据，不是 JSON / URL / 常见压缩，常见 AES/ChaCha 派生密钥也未解出明文。详见 [rules/qr-import.md](rules/qr-import.md)。
 
 对计划的追加调整：
 
-1. 1.2 的导入方式增加 QR，但明确“能扫 ≠ 能导入”。
-2. P0 增加 QR 样本清点：前缀、版本、载荷长度、可解性、来源。
-3. P2 增加 QR 解析层（URL / 原始 JSON / 自有 scheme）；Yealico `v2:` 无法解码时返回 `UNSUPPORTED_QR_PAYLOAD`，提供粘贴/URL 回退。
-4. 相机扫码 UI 在格式门槛通过后引入，不在 P1 加原生相机依赖。
-5. 兼容矩阵新增 QR 行；`v2:` 在拿到规则 JSON 对照或官方格式前保持“不支持/阻塞”。
+1. ~~1.2 的导入方式增加 QR，但明确“能扫 ≠ 能导入”。~~
+2. ~~P0 增加 QR 样本清点：前缀、版本、载荷长度、可解性、来源。~~
+3. P2 增加 QR 解析层（URL / 原始 JSON / 自有 scheme）；Yealico `v2:` 无法解码时返回 `UNSUPPORTED_QR_PAYLOAD`，提供粘贴/URL 回退。~~已实施后又移除：v2 确认为 CloudKit 引用，扫码无可用终点，整条链路已删。~~
+4. 相机扫码 UI 在格式门槛通过后引入，不在 P1 加原生相机依赖。~~已实施后又移除。~~
+5. ~~兼容矩阵新增 QR 行；`v2:` 在拿到规则 JSON 对照或官方格式前保持“不支持/阻塞”。~~ 已改为“导入载体矩阵”，QR 行标记为已移除。
 
-需要用户补充：该 QR 对应的规则 JSON、飞行模式扫描结果、2～3 组 QR + JSON 对照。
+需要用户补充：~~该 QR 对应的规则 JSON、飞行模式扫描结果、2～3 组 QR + JSON 对照~~：均不再需要，结论已由密钥搜索、抓包和飞行模式测试确定。
 
 作者主页已核查：`https://wc3818290.home.blog/` 的 325 篇公开文章只发布二维码，没有 `.json` / GitHub / Gist / `indexRule` 代码块；禁漫天堂主站与大陆版两张 QR 的载荷前 16 字节相同、后 48 字节不同。详见 [rules/qr-import.md](rules/qr-import.md)。
 
@@ -311,4 +311,4 @@ P5 回归与交付
 
 用户另提供的“导出 JSON”样本仍是加密容器：`{ "encrypted": "v2:<base64>" }`，3840 bytes 高熵、块对齐、无压缩头。已识别为 `UNSUPPORTED_ENCRYPTED_EXPORT`，不当作规则导入。详见 [rules/yealico-export-format.md](rules/yealico-export-format.md)。
 
-2026-10-20 进一步确认：macOS 版 Yealico 的容器 SQLite（`ComiGa.sqlite`）在 `ZSITE` / `ZSITELISTRULE` / `ZSITEPAGE` 等表中直接存规则明文 JSON；已提取 6 个站点，含禁漫 2.26、阿巴基猫 2.4。**规则数据的获取不再依赖 QR/导出解密**；自动扫码导入仍需单独的格式方案。方法与边界见 [rules/yealico-macos-sqlite.md](rules/yealico-macos-sqlite.md)。
+2026-10-20 进一步确认：macOS 版 Yealico 的容器 SQLite（`ComiGa.sqlite`）在 `ZSITE` / `ZSITELISTRULE` / `ZSITEPAGE` 等表中直接存规则明文 JSON；已提取 6 个站点，含禁漫 2.26、阿巴基猫 2.4。**规则数据的获取不再依赖 QR/导出解密**；自动扫码导入已于 2026-10-22 放弃（v2 是 CloudKit 引用）。方法与边界见 [rules/yealico-macos-sqlite.md](rules/yealico-macos-sqlite.md)。

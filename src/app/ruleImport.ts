@@ -9,10 +9,8 @@ import type {
   RuleFetcher,
   RoutePlan,
 } from '../engine';
-import { parseQrPayload } from '../engine/qr';
-import type { QrPayload } from '../engine/qr';
 
-export type RuleImportSource = 'paste' | 'url' | 'qr';
+export type RuleImportSource = 'paste' | 'url';
 
 export interface ImportedRuleSite {
   /** 稳定去重 ID（当前用规则原文的简单哈希，不是安全哈希）。 */
@@ -30,7 +28,6 @@ export interface ImportedRuleSite {
 
 export interface RuleImportResult {
   site?: ImportedRuleSite;
-  qr?: QrPayload;
   diagnostics: Diagnostic[];
 }
 
@@ -142,8 +139,7 @@ function parseRuleJson(
 }
 
 /**
- * 粘贴/文件导入。只接受 JSON；URL 请用 importRuleFromUrl，
- * 扫码请用 importRuleFromQr。
+ * 粘贴/文件导入。只接受 JSON；URL 请用 importRuleFromUrl。
  */
 export function importRuleText(
   text: string,
@@ -155,37 +151,17 @@ export function importRuleText(
       diagnostics: [errorDiagnostic('INVALID_RULE', 'empty rule payload')],
     };
   }
-  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-    return parseRuleJson(trimmed, source);
-  }
-  const qr = parseQrPayload(trimmed);
-  if (qr.kind === 'yealico-v2') {
-    return { qr, diagnostics: qr.diagnostics };
-  }
-  if (qr.kind === 'rule-url') {
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
     return {
-      qr,
       diagnostics: [
         errorDiagnostic(
-          'UNSUPPORTED_FEATURE',
-          'rule URL requires importRuleFromUrl',
-          'url',
+          'INVALID_RULE',
+          'rule payload must be JSON; use importRuleFromUrl for http(s) URLs',
         ),
       ],
     };
   }
-  if (qr.kind === 'unsupported') {
-    return { qr, diagnostics: qr.diagnostics };
-  }
-  if (qr.kind !== 'rule-json' || !qr.json) {
-    return {
-      qr,
-      diagnostics: [
-        errorDiagnostic('INVALID_RULE', 'payload does not contain rule JSON'),
-      ],
-    };
-  }
-  return parseRuleJson(qr.json, source);
+  return parseRuleJson(trimmed, source);
 }
 
 export async function importRuleFromUrl(
@@ -222,28 +198,6 @@ export async function importRuleFromUrl(
     };
   }
   return parseRuleJson(response.body, source, url);
-}
-
-export async function importRuleFromQr(
-  payload: string,
-  fetcher: RuleFetcher,
-): Promise<RuleImportResult> {
-  const qr = parseQrPayload(payload);
-  if (qr.kind === 'yealico-v2' || qr.kind === 'unsupported') {
-    return { qr, diagnostics: qr.diagnostics };
-  }
-  if (qr.kind === 'rule-url' && qr.url) {
-    return { qr, ...(await importRuleFromUrl(qr.url, fetcher, 'qr')) };
-  }
-  if (qr.kind === 'rule-json' && qr.json) {
-    return { qr, ...importRuleText(qr.json, 'qr') };
-  }
-  return {
-    qr,
-    diagnostics: [
-      errorDiagnostic('INVALID_RULE', 'QR payload does not contain a rule'),
-    ],
-  };
 }
 
 export interface StoredSite extends ImportedRuleSite {

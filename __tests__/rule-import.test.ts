@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import {
-  importRuleFromQr,
   importRuleFromUrl,
   importRuleText,
   SiteRepository,
@@ -59,45 +58,25 @@ test('imports plain RuleDocument JSON', () => {
   expect(result.diagnostics.some(item => item.code === 'INVALID_RULE')).toBe(false);
 });
 
-test('recognizes Yealico v2 QR as unsupported, not as a site', () => {
-  const payload = `Yealico QR Code: v2:${Buffer.alloc(64).toString('base64')}`;
-  const result = importRuleText(payload);
-
-  expect(result.site).toBeUndefined();
-  expect(result.qr?.kind).toBe('yealico-v2');
-  expect(result.diagnostics).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({
-        code: 'UNSUPPORTED_QR_PAYLOAD',
-        fieldPath: 'qr.payload',
-      }),
-    ]),
-  );
-});
-
-test('imports a rule URL and a QR rule URL through the same pipeline', async () => {
+test('imports a rule URL and records its source', async () => {
   const fromUrl = await importRuleFromUrl(
     'https://example.test/rule.json',
     fetcherFor(JSON.stringify(plainRule)),
   );
   expect(fromUrl.site?.source).toBe('url');
   expect(fromUrl.site?.sourceUrl).toBe('https://example.test/rule.json');
-
-  const fromQr = await importRuleFromQr(
-    'https://example.test/rule.json',
-    fetcherFor(JSON.stringify(plainRule)),
-  );
-  expect(fromQr.site?.source).toBe('qr');
-  expect(fromQr.site?.name).toBe('Plain Site');
 });
 
-test('imports a QR raw JSON payload', async () => {
-  const result = await importRuleFromQr(
-    JSON.stringify(plainRule),
-    fetcherFor('unused'),
-  );
-  expect(result.site?.name).toBe('Plain Site');
-  expect(result.site?.source).toBe('qr');
+test('rejects non-JSON paste payload and points at URL import', () => {
+  const result = importRuleText('https://example.test/rule.json');
+
+  expect(result.site).toBeUndefined();
+  expect(result.diagnostics).toEqual([
+    expect.objectContaining({
+      code: 'INVALID_RULE',
+      detail: expect.stringContaining('importRuleFromUrl'),
+    }),
+  ]);
 });
 
 test('repository rejects duplicate sites and supports remove', () => {

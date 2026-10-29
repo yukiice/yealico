@@ -1,7 +1,7 @@
 # QR 导入格式与兼容性（P0 补充）
 
 - 记录日期：2026-10-20
-- 功能状态：**导入领域层、相机扫码、站点持久化已完成；Yealico v2 解码未完成**（2026-10-22 更新）。
+- 功能状态：**已放弃并移除（2026-10-22）**。v2 是 CloudKit 引用，密钥不在客户端，离线解码不成立；相机扫码、QR 解析层与 `UNSUPPORTED_QR_PAYLOAD` 已从代码和原生依赖中删除。本文保留取证过程，避免重复投入。
 - 样本：用户提供的 `6DA1253174569835C4C45D113675AEA3.jpg`
 - 画面上标注：`禁漫天堂` / `jm18c-dfg.cc` / `2.26@wc3818290`
 - 关联：[规则语义基线](../reference/yealico-rule-model.md)、[待确认项](open-questions.md)、[兼容矩阵](compat-matrix.md)
@@ -174,55 +174,42 @@ CloudKit 访问特性（实测）：
 | F. 逆向 Yealico 客户端提取密钥 | **已尝试，不可行** | 全量搜索 1,400 万+ 候选均为 0 命中 | 密钥不在客户端，见 §1.3 |
 | G. 伪造“已兼容” | 不可接受 | 用户会拿到空结果 | 禁止 |
 
-## 4. 当前实现
+## 4. 当前实现（已移除）
 
-`src/engine/qr.ts` 提供纯函数 `parseQrPayload`：
+2026-10-22 决定砍掉整条扫码链路，以下代码已删除：
 
-- 识别 `Yealico QR Code: vN:<base64>`。
-- v2 返回 `kind: 'yealico-v2'`、版本、字节数，并产生 `UNSUPPORTED_QR_PAYLOAD`；**不尝试解密**。
-- 支持：
-  - 原始规则 JSON（对象）；
-  - `http(s)://` 规则 URL；
-  - `yealico://import?url=...` / `?rule=...`。
-- 未知/非法载荷统一返回 `UNSUPPORTED_QR_PAYLOAD`，不静默空结果。
-- 测试：`__tests__/qr.test.ts`，覆盖 v2 opaque、双载荷 16 字节前缀/48 字节差异、URL、JSON、自定义 scheme、非法 base64。
-- 导入领域层：`src/app/ruleImport.ts` 已把原始 JSON/URL/QR raw JSON 接到 `SiteRepository`；`v2:` 仍明确报 `UNSUPPORTED_QR_PAYLOAD`。
-- Android 自检页 10/10，含 3 条 QR 检查（v2 识别、64 bytes、要求规则 JSON/URL）；**只验证载荷识别，不是相机扫码**。
-- 明文取证路径：见 [yealico-rule-extraction.md](yealico-rule-extraction.md)，用 Yealico 站点菜单 → Edit 逐页截图/复制。
+- `src/engine/qr.ts` 与 `parseQrPayload`；
+- `src/app/ruleImport.ts` 的 `importRuleFromQr`、`RuleImportResult.qr` 与 `'qr'` 来源；
+- `src/platform/qrScanner.ts`、Android `QrScanner` 原生模块与 `play-services-code-scanner` 依赖；
+- 站点页的「扫码导入」按钮；
+- `UNSUPPORTED_QR_PAYLOAD` 错误码与对应文案。
 
-已实现（2026-10-22）：
+当前导入只保留粘贴规则 JSON 和规则 URL。历史实现（仅供追溯）：曾用 `parseQrPayload` 识别 `Yealico QR Code: vN:<base64>`，对 v2 返回 `kind: 'yealico-v2'`、版本、字节数并报错，从不尝试解密；相机扫码走 Google Code Scanner，不申请 CAMERA 权限。
 
-- 相机扫码 UI：原生 `QrScanner` 模块调用 Google Code Scanner（系统扫码界面，不申请 CAMERA 权限）；无 GMS/Play Store 设备的回退提示见 [p3-site-import.md](../architecture/p3-site-import.md#7-扫码实现与限制)。
+## 5. 对计划的调整（已废止）
 
-尚未实现：
+以下调整曾写进计划，现均已回退：
 
-- 从相册导入二维码图片。
-- Yealico v2 的实际解密。
-- 扫码后的规则下载、校验、站点落库（v2 载荷是引用，不是规则本体）。
+- ~~P0 新增“QR 样本与载荷格式”清点项~~；
+- ~~P2 导入层支持 URL / 原始 JSON / 自有 scheme~~；
+- ~~P3 扫码 → 识别 → 导入/明确错误~~；
+- ~~兼容矩阵新增 QR 行~~。
 
-## 5. 对计划的调整
-
-- **P0**：新增“QR 样本与载荷格式”清点项；每个 QR 记录前缀、版本、载荷长度、可解性、来源。
-- **P2**：导入层先支持 URL / 原始 JSON / 自有 scheme（领域层已完成）；Yealico v2 若仍无解码依据，必须报 `UNSUPPORTED_QR_PAYLOAD` 并提供粘贴/URL 回退。
-- **P3**：扫码 → 识别 → 导入/明确错误的完整流程；相机模块在格式门槛通过后再引入。**QR 是必须功能，不是可选项。**
-- 兼容矩阵新增 QR 行，状态不能因“能识别前缀”而写成“已支持”。
+现在只保留一条结论：**Yealico v2 二维码不可离线解码，不作为导入入口**。
 
 ## 6. 需要补充的输入
 
 1. **优先用 macOS 容器 SQLite 取规则**：`ComiGa.sqlite` 的 `ZSITE`/`ZSITELISTRULE` 等表存明文 JSON；见 [yealico-macos-sqlite.md](yealico-macos-sqlite.md)。
 2. **iOS-only 用 Edit 取明文**：扫码后站点菜单 → Edit，按标签页截图/复制字段；步骤见 [yealico-rule-extraction.md](yealico-rule-extraction.md)。
-3. **这个二维码对应的规则 JSON**（脱敏即可）。有明文才能判断 v2 是否为可离线解码的加密包。
+3. ~~这个二维码对应的规则 JSON（脱敏即可）~~：已不影响结论，v2 不可离线解码已由密钥搜索与抓包确认。
 4. ~~**飞行模式测试**：在 Yealico 中开飞行模式扫描同一二维码，是否仍能添加站点？~~
    **已完成（2026-10-22）**：飞行模式下扫码报“网络错误”，与二进制里的 `To activate this QR Code, please ensure that the network is available.` 完全对应。
    结合 §1.3 的密钥搜索（全量 0 命中），结论是 **v2 解码需要服务端参与，离线兼容不成立**。
-5. **2～3 组 QR + 规则 JSON 对照**，最好包含一个结构简单的静态站点。
-6. 若考虑逆向客户端，需要明确授权与合规边界；默认不做。
+5. ~~**2～3 组 QR + 规则 JSON 对照**~~：已不再需要，功能已移除。
+6. ~~若考虑逆向客户端，需要明确授权与合规边界~~：已在 §1.5 排除，macOS 上无法 attach。
 
 作者博客已核查：325 篇公开文章只有二维码，没有 JSON/URL；因此需要作者直接提供规则明文、导出方式或格式说明，或由用户在 Yealico 内找到导出入口。
 
-## 7. 验收标准（QR）
+## 7. 验收标准（已取消）
 
-- 扫码/粘贴后，能区分：可导入的 URL/JSON、Yealico v2 不透明载荷、非法载荷。
-- 每种失败都有稳定错误码和用户可执行的下一步（粘贴 JSON / 打开规则 URL）。
-- 不出现“扫到了但页面空白”“导入成功但站点列表为空”这类假成功。
-- 真实 Yealico QR 的兼容结论必须绑定规则 JSON 或原版 App 行为证据。
+扫码功能已移除，原验收项不再适用。当前对二维码的唯一约束是：**不得把扫码或 v2 识别作为导入入口重新引入**，除非拿到官方规则明文格式与可验证的解码依据。

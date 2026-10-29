@@ -61,17 +61,14 @@
 | `ignoreDetail` | 导航 | 待样本确认 | 待补 | 待跑 | 待跑 | — | 待验证 | 见 Q24 |
 | `displayMode` | 展示 | 部分 | 待补 | — | — | — | 部分支持 | 首版 text/collection |
 
-## 3. QR 导入矩阵
+## 3. 导入载体矩阵
 
-扫码成功不等于导入成功。Yealico `v2:` 载荷在拿到规则 JSON 对照或官方格式前，不能标记为兼容。
-
-| 载体 | 识别 | 可导入 | 状态 | 证据 / 限制 |
-| --- | --- | --- | --- | --- |
-| Yealico QR `v2:` | 是 | 否 | 不支持 | [qr-import.md](qr-import.md)；API36 识别 PASS，作者博客 325 篇无 JSON/URL；可用 [Yealico Edit 取证](yealico-rule-extraction.md)，但无自动导入；报 `UNSUPPORTED_QR_PAYLOAD` |
-| `http(s)://` 规则 URL | 是 | 解析层 | 部分支持 | Node 解析层 PASS；相机扫码 UI 未做 |
-| 原始规则 JSON | 是 | 解析层 | 部分支持 | Node 解析层 PASS；相机扫码 UI 未做 |
-| `yealico://import?url=` / `?rule=` | 是 | 解析层 | 部分支持 | Node 解析层 PASS；相机扫码 UI 未做 |
-| Yealico 导出 `{"encrypted":"v2:..."}` | 是 | 否 | 不支持 | 3840 bytes 高熵；报 `UNSUPPORTED_ENCRYPTED_EXPORT`；见 [export-format](yealico-export-format.md) |
+| 载体 | 状态 | 证据 / 限制 |
+| --- | --- | --- |
+| 规则 JSON（粘贴/文件） | 支持 | `importRuleText`；领域层测试 PASS |
+| `http(s)://` 规则 URL | 支持 | `importRuleFromUrl`；release 构建只允许 `https://` |
+| Yealico 导出 `{"encrypted":"v2:..."}` | 不支持 | 3840 bytes 高熵；报 `UNSUPPORTED_ENCRYPTED_EXPORT`；见 [export-format](yealico-export-format.md) |
+| Yealico QR `v2:` | 已移除 | 2026-10-22 确认是 CloudKit 引用，密钥不在客户端，离线不可解码；相机扫码、QR 解析层与 `UNSUPPORTED_QR_PAYLOAD` 已删除，见 [qr-import.md](qr-import.md) |
 
 ## 4. 更新规则
 

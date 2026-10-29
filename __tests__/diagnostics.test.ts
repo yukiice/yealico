@@ -52,17 +52,6 @@ test('masks signatures in html-escaped, pipe-joined diagnostics', () => {
   );
 });
 
-test('explains opaque QR payloads instead of exposing the raw code', () => {
-  expect(
-    friendlyDiagnostic({
-      fieldPath: 'qr',
-      code: 'UNSUPPORTED_QR_PAYLOAD',
-      detail: 'Yealico QR v2 payload is opaque (64 bytes)',
-      severity: 'error',
-    }),
-  ).toContain('无法离线解码');
-});
-
 test('falls back to the raw code for unmapped diagnostics', () => {
   expect(
     friendlyDiagnostic({

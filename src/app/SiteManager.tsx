@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 
 import {
-  importRuleFromQr,
   importRuleFromUrl,
   importRuleText,
   SiteRepository,
@@ -22,7 +21,6 @@ import {
   serializeSiteLibrary,
 } from './readingProgress';
 import { createFetchRuleFetcher } from '../platform/ruleFetcher';
-import { describeScanError, scanQrCode } from '../platform/qrScanner';
 import { friendlyDiagnostic } from './diagnostics';
 import { createSiteStorage } from '../platform/siteStorage';
 import { SiteWorkspace } from './SiteWorkspace';
@@ -148,26 +146,6 @@ export function SiteManager(): React.JSX.Element {
     }
   };
 
-  /**
-   * 扫码导入：相机由系统扫码 UI 提供，这里只负责把 payload
-   * 送回与粘贴/URL 相同的导入链路。
-   */
-  const scanRule = async (): Promise<void> => {
-    if (busy) {
-      return;
-    }
-    setBusy(true);
-    try {
-      const payload = await scanQrCode();
-      const result = await importRuleFromQr(payload, fetcher);
-      await applyResult(result);
-    } catch (error) {
-      setMessage(describeScanError(error));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const removeSite = async (id: string): Promise<void> => {
     if (!repository.current.remove(id)) {
       return;
@@ -192,8 +170,8 @@ export function SiteManager(): React.JSX.Element {
     <View style={styles.root}>
       <Text style={styles.title}>站点管理</Text>
       <Text style={styles.note}>
-        支持规则 JSON、规则 URL 和二维码。Yealico v2 二维码仍未解码，
-        扫码后会给出粘贴/URL 回退提示。
+        支持规则 JSON 和规则 URL。Yealico 二维码是 CloudKit 引用，无法离线解码，
+        导入前需先取得规则明文。
       </Text>
       <TextInput
         testID="rule-import-input"
@@ -212,13 +190,6 @@ export function SiteManager(): React.JSX.Element {
           disabled={busy}
           style={[styles.button, busy && styles.buttonDisabled]}>
           <Text style={styles.buttonText}>{busy ? '导入中…' : '导入规则'}</Text>
-        </Pressable>
-        <Pressable
-          testID="rule-scan"
-          onPress={scanRule}
-          disabled={busy}
-          style={[styles.button, styles.scanButton, busy && styles.buttonDisabled]}>
-          <Text style={styles.buttonText}>扫码导入</Text>
         </Pressable>
       </View>
       <Text style={styles.message}>{message}</Text>
@@ -292,9 +263,6 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: 12,
-  },
-  scanButton: {
-    backgroundColor: '#0f766e',
   },
   buttonDisabled: {
     backgroundColor: '#334155',
