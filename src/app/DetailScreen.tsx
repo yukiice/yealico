@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  FlatList,
   Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -57,6 +59,28 @@ export function chapterMetaText(
   return `阅读 · ${chapter.idCode ?? ''}`;
 }
 
+/**
+ * 章节选择器的过滤：空查询返回全部索引，否则按标题/idCode 做大小写不敏感的子串匹配。
+ * 返回原数组下标，保证选择后进入的章节与详情页一致。
+ */
+export function filterChapters(
+  chapters: ChapterItem[],
+  query: string,
+): number[] {
+  const text = query.trim().toLowerCase();
+  if (!text) {
+    return chapters.map((_chapter, index) => index);
+  }
+  const matched: number[] = [];
+  chapters.forEach((chapter, index) => {
+    const label = `${chapter.title ?? ''} ${chapter.idCode ?? ''}`.toLowerCase();
+    if (label.includes(text)) {
+      matched.push(index);
+    }
+  });
+  return matched;
+}
+
 export function DetailScreen({
   siteName,
   siteId,
@@ -83,6 +107,8 @@ export function DetailScreen({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [chapterIndex, setChapterIndex] = useState<number | null>(null);
+  const [showChapterPicker, setShowChapterPicker] = useState(false);
+  const [chapterQuery, setChapterQuery] = useState('');
   const detailUrl = detailUrlFor(rule, item, domain);
 
   useEffect(() => {
@@ -164,6 +190,67 @@ export function DetailScreen({
     );
   }
 
+  const openChapter = (index: number): void => {
+    setShowChapterPicker(false);
+    setChapterQuery('');
+    setChapterIndex(index);
+  };
+
+  const chapterRow = (
+    entry: ChapterItem,
+    index: number,
+  ): React.JSX.Element => (
+    <Pressable
+      key={entry.idCode ?? entry.url ?? `${index}`}
+      onPress={() => openChapter(index)}
+      disabled={typeof entry.url !== 'string' || !entry.url}
+      style={styles.chapterRow}>
+      <Text style={styles.chapterTitle}>
+        {entry.title ?? entry.idCode ?? `章节 ${index + 1}`}
+      </Text>
+      <Text style={styles.chapterMeta}>
+        {typeof entry.url === 'string' && entry.url
+          ? chapterMetaText(progress, siteId, entry)
+          : '缺少章节地址'}
+      </Text>
+    </Pressable>
+  );
+
+  if (showChapterPicker) {
+    const matched = filterChapters(chapters, chapterQuery);
+    return (
+      <View style={styles.root}>
+        <Pressable
+          onPress={() => setShowChapterPicker(false)}
+          style={styles.backButton}>
+          <Text style={styles.backText}>← 返回详情</Text>
+        </Pressable>
+        <Text style={styles.title}>章节 ({chapters.length})</Text>
+        <TextInput
+          testID="chapter-filter"
+          value={chapterQuery}
+          onChangeText={setChapterQuery}
+          placeholder="搜索章节标题"
+          placeholderTextColor="#64748b"
+          style={styles.search}
+        />
+        <Text style={styles.meta}>匹配 {matched.length} 章</Text>
+        {matched.length === 0 ? (
+          <Text style={styles.info}>没有匹配的章节</Text>
+        ) : (
+          <FlatList
+            data={matched}
+            keyExtractor={index => `${index}`}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item: matchedIndex }) =>
+              chapterRow(chapters[matchedIndex], matchedIndex)
+            }
+          />
+        )}
+      </View>
+    );
+  }
+
   const title = detail?.fields.title ?? item.title ?? siteName;
   const cover = detail?.fields.cover ?? item.cover;
   const pictures = detail?.pictures ?? [];
@@ -200,24 +287,16 @@ export function DetailScreen({
           {chapters.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>章节 ({chapters.length})</Text>
-              {chapters.slice(0, 30).map((entry, index) => (
+              {chapters.slice(0, 30).map(chapterRow)}
+              {chapters.length > 30 ? (
                 <Pressable
-                  key={entry.idCode ?? entry.url ?? `${index}`}
-                  onPress={() => setChapterIndex(index)}
-                  disabled={typeof entry.url !== 'string' || !entry.url}
-                  style={styles.chapterRow}>
-                  <Text style={styles.chapterTitle}>
-                    {entry.title ?? entry.idCode ?? `章节 ${index + 1}`}
-                  </Text>
-                  <Text style={styles.chapterMeta}>
-                    {typeof entry.url === 'string' && entry.url
-                      ? chapterMetaText(progress, siteId, entry)
-                      : '缺少章节地址'}
+                  testID="chapter-picker-open"
+                  onPress={() => setShowChapterPicker(true)}
+                  style={styles.moreButton}>
+                  <Text style={styles.moreText}>
+                    查看全部 {chapters.length} 章
                   </Text>
                 </Pressable>
-              ))}
-              {chapters.length > 30 ? (
-                <Text style={styles.meta}>仅显示前 30 章</Text>
               ) : null}
             </View>
           )}
@@ -322,6 +401,26 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontSize: 10,
     marginTop: 2,
+  },
+  search: {
+    backgroundColor: '#0b1220',
+    borderColor: '#1e293b',
+    borderWidth: 1,
+    borderRadius: 6,
+    color: '#e2e8f0',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 8,
+    marginBottom: 4,
+    fontSize: 13,
+  },
+  moreButton: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  moreText: {
+    color: '#93c5fd',
+    fontSize: 13,
   },
   picture: {
     width: '100%',

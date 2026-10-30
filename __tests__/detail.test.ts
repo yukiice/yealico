@@ -1,3 +1,4 @@
+import { filterChapters } from '../src/app/DetailScreen';
 import {
   buildGalleryPageUrls,
   buildPageUrls,
@@ -6,7 +7,7 @@ import {
   executeGallery,
   executeList,
 } from '../src/engine';
-import type { RuleDocument } from '../src/engine';
+import type { ChapterItem, RuleDocument } from '../src/engine';
 
 const rule: RuleDocument = {
   name: 'Synthetic Detail',
@@ -176,4 +177,18 @@ test('executeGallery extracts totalPages/images and clamps page URLs', () => {
   });
   expect(pages.urls).toHaveLength(3);
   expect(pages.urls[1]).toBe('https://example.test/photo/123?page=2');
+});
+
+test('filters chapters by title or idCode and keeps original indexes', () => {
+  const chapters = [
+    { title: '第01卷', idCode: '1', url: 'u1' },
+    { title: '第02卷', idCode: '2', url: 'u2' },
+    { title: '番外', idCode: 'sp', url: 'u3' },
+  ] as unknown as ChapterItem[];
+
+  expect(filterChapters(chapters, '')).toEqual([0, 1, 2]);
+  expect(filterChapters(chapters, '第02')).toEqual([1]);
+  expect(filterChapters(chapters, 'sp')).toEqual([2]);
+  expect(filterChapters(chapters, ' 第0 ')).toEqual([0, 1]);
+  expect(filterChapters(chapters, '不存在')).toEqual([]);
 });
