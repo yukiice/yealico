@@ -2,6 +2,7 @@ import {
   canLoadMorePages,
   dominantIndex,
   imageHeaders,
+  IMAGE_USER_AGENT,
   nextPageBudget,
   preloadTargets,
 } from '../src/app/ReaderScreen';
@@ -75,29 +76,39 @@ test('grows the page budget by one step without passing the total', () => {
   expect(nextPageBudget(0, 3)).toBe(3);
 });
 
-test('sends rule headers and falls back to a referer', () => {
+test('sends rule headers and fills browser defaults', () => {
   expect(imageHeaders({ name: 'x', domain: 'a.test' }, 'a.test')).toEqual({
     Referer: 'https://a.test/',
+    'User-Agent': IMAGE_USER_AGENT,
+    Accept: expect.stringContaining('image/'),
   });
 
-  expect(
-    imageHeaders(
-      { name: 'x', headers: { Referer: 'https://b.test/view' } },
-      'a.test',
-    ),
-  ).toEqual({ Referer: 'https://b.test/view' });
+  const customReferer = imageHeaders(
+    { name: 'x', headers: { Referer: 'https://b.test/view' } },
+    'a.test',
+  );
+  expect(customReferer.Referer).toBe('https://b.test/view');
 
   // 大小写不同也算已有的 Referer，不再覆盖。
-  expect(
-    imageHeaders(
-      { name: 'x', headers: { referer: 'https://c.test/view' } },
-      'a.test',
-    ),
-  ).toEqual({ referer: 'https://c.test/view' });
+  const lowerReferer = imageHeaders(
+    { name: 'x', headers: { referer: 'https://c.test/view' } },
+    'a.test',
+  );
+  expect(lowerReferer.referer).toBe('https://c.test/view');
+  expect(lowerReferer.Referer).toBeUndefined();
 
-  expect(
-    imageHeaders({ name: 'x', headers: { 'User-Agent': 'UA' } }, ''),
-  ).toEqual({ 'User-Agent': 'UA' });
+  const customUa = imageHeaders(
+    { name: 'x', headers: { 'User-Agent': 'UA' } },
+    '',
+  );
+  expect(customUa['User-Agent']).toBe('UA');
+  expect(customUa.Referer).toBeUndefined();
+
+  const customAccept = imageHeaders(
+    { name: 'x', headers: { Accept: 'image/png' } },
+    'a.test',
+  );
+  expect(customAccept.Accept).toBe('image/png');
 });
 
 test('feeds a chapter URL from detail straight into gallery paging', async () => {

@@ -55,11 +55,15 @@ ReaderScreen
 
 ### 1.4 图片请求头
 
-`imageHeaders(rule, domain)` 在规则 `headers` 基础上补一个站点根 Referer：
+`imageHeaders(rule, domain)` 在规则 `headers` 基础上补齐浏览器默认头：
 
-- 规则没给 Referer 时补 `https://{domain}/`，图床常见的防盗链场景能过；
-- 规则已给小写 `referer` 也认，不重复覆盖；
+- 缺 Referer 时补 `https://{domain}/`；
+- 缺 `User-Agent` 时补安卓 Chrome UA（`IMAGE_USER_AGENT`）；
+- 缺 `Accept` 时补 `image/avif,image/webp,image/apng,image/*,*/*;q=0.8`；
+- 规则显式给出的头优先，大小写不同也算已给（不重复覆盖）；
 - 章内页请求仍走 `loadGalleryPages` 自己的 `requestFor`，两套头互不干扰。
+
+依据：漫画柜对缺 UA/Accept 的章节页请求直接返回 403，补上浏览器头后为 200；图片与页面同域，因此统一按浏览器行为补齐。
 
 ### 1.5 阅读进度
 
@@ -96,7 +100,7 @@ ReaderScreen
 - **进度不保留图内偏移**：长图滚到一半退出，回来会回到该图顶部。要保留页内位置需要引入偏移比例，并处理换设备后的漂移。
 - **`totalPages` 缺失的站点只加载第 1 页**：漫画柜这类“首图页直出全部 image”的规则正好覆盖；但真正的多页画廊如果规则缺 `totalPages`，阅读器只能看到第一页的图像。
 - **`loadGalleryPages` 是串行请求**：章内页之间没有并发，页数多时首屏会慢，后续要改成按页懒加载。
-- **部分图床图片会加载失败**：漫画柜章节存在 `图片加载失败`，请求已带规则头和 Referer，属于图床侧限制；失败占位可单张重试。
+- **部分图床图片仍可能加载失败**：漫画柜部分章节出现过失败。已补浏览器 UA/Accept 与 Referer，并在失败时把前 5 条图片 URL 记进调试页（`图片加载失败 #N`），供后续按域名/签名参数定位；尚未复现到同一失败样本，因此不能宣称已修复。
 
 ## 3. 测试
 
@@ -106,7 +110,7 @@ ReaderScreen
 - `preloadTargets`：只取当前图之后、窗口越界与负数索引；
 - `canLoadMorePages`：总页数已知/未知/已到顶；
 - `nextPageBudget`：按步长推进但不超过总数；
-- `imageHeaders`：补 Referer、大小写不同不覆盖、空域名不补；
+- `imageHeaders`：补 Referer / UA / Accept、自定义头优先、空域名不补 Referer；
 - 端到端：`executeDetail` 产出 `chapter.url` 模板 → `loadGalleryPages` 展开 `#p=1` / `#p=2` → 两张图按顺序去重；
 - 进度：`idCode` 优先于 URL、旧格式迁移、脏数据丢弃、envelope 往返、upsert 去重、无变化不写、缺稳定 ID 不存、删站点/删章节、单站点上限裁剪（时间戳相同时按写入顺序）、章节行文案。
 

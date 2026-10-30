@@ -64,21 +64,32 @@ export function nextPageBudget(
   return Math.min(totalPages, current + Math.max(1, Math.floor(step)));
 }
 
+/** 图片请求默认 UA：与站点反爬要求的浏览器形态一致。 */
+export const IMAGE_USER_AGENT =
+  'Mozilla/5.0 (Linux; Android 10; SM-G981B) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36';
+
 /**
- * 图片请求头：沿用规则头，缺 Referer 时补一个站点根地址。
+ * 图片请求头：沿用规则头，缺 Referer / UA / Accept 时补浏览器默认值。
  *
- * 图床普遍按 Referer 防盗链，缺省比留空更接近浏览器行为。
+ * 图床普遍按 Referer 和 UA 防盗链；漫画柜站点对缺 UA 的请求直接 403，
+ * 图片同域，因此这里统一按浏览器行为补齐。规则显式给出的头优先。
  */
 export function imageHeaders(
   rule: RuleDocument,
   domain: string,
 ): Record<string, string> {
   const headers: Record<string, string> = { ...(rule.headers ?? {}) };
-  const hasReferer = Object.keys(headers).some(
-    key => key.toLowerCase() === 'referer',
-  );
-  if (!hasReferer && domain) {
+  const hasHeader = (name: string): boolean =>
+    Object.keys(headers).some(key => key.toLowerCase() === name);
+  if (!hasHeader('referer') && domain) {
     headers.Referer = `https://${domain}/`;
+  }
+  if (!hasHeader('user-agent')) {
+    headers['User-Agent'] = IMAGE_USER_AGENT;
+  }
+  if (!hasHeader('accept')) {
+    headers.Accept = 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8';
   }
   return headers;
 }
@@ -181,6 +192,7 @@ export function ReaderScreen({
 
   const scrollRef = useRef<ScrollView>(null);
   const blocks = useRef<(ImageBlock | undefined)[]>([]);
+  const reportedFailures = useRef<Set<number>>(new Set());
   const restoreTarget = useRef<number | null>(
     restored && restored.index > 0 ? restored.index : null,
   );
@@ -403,6 +415,24 @@ export function ReaderScreen({
     }));
   };
 
+  // 图床失败只上报前几条，避免把调试页刷满；URL 用于判断是域名、签名还是请求头问题。
+  const markFailed = (position: number, uri: string): void => {
+    setFailed(current =>
+      current[position] ? current : { ...current, [position]: true },
+    );
+    if (reportedFailures.current.has(position) || reportedFailures.current.size >= 5) {
+      return;
+    }
+    reportedFailures.current.add(position);
+    debug.record({
+      stage: 'gallery',
+      label: `图片加载失败 #${position + 1}`,
+      counts: { image: position + 1 },
+      diagnostics: [],
+      urls: [uri],
+    });
+  };
+
   return (
     <View style={styles.root}>
       <Pressable onPress={onBack} style={styles.backButton}>
@@ -462,11 +492,7 @@ export function ReaderScreen({
                 ]}
                 resizeMode="contain"
                 onLoad={event => handleImageLoad(uri, event)}
-                onError={() =>
-                  setFailed(current =>
-                    current[position] ? current : { ...current, [position]: true },
-                  )
-                }
+                onError={() => markFailed(position, uri)}
               />
               {failed[position] ? (
                 <View style={styles.blockError}>
