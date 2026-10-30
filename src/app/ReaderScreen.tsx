@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  FlatList,
   Image,
   Pressable,
   ScrollView,
@@ -100,6 +101,40 @@ export interface ImageBlock {
 }
 
 /**
+ * 双页模式的分屏：第一张单独一屏（封面），之后每两张一屏。
+ */
+export function buildSpreads(images: string[]): string[][] {
+  if (images.length === 0) {
+    return [];
+  }
+  const spreads: string[][] = [[images[0]]];
+  for (let position = 1; position < images.length; position += 2) {
+    spreads.push(images.slice(position, position + 2));
+  }
+  return spreads;
+}
+
+/** 某张图所在的双页屏下标。 */
+export function spreadIndexFor(imageIndex: number): number {
+  if (imageIndex <= 0) {
+    return 0;
+  }
+  return Math.floor((imageIndex - 1) / 2) + 1;
+}
+
+/** 某屏第一张图在原始图片数组里的下标。 */
+export function firstImageIndexOfSpread(
+  spreads: string[][],
+  spreadIndex: number,
+): number {
+  let count = 0;
+  for (let index = 0; index < spreadIndex && index < spreads.length; index += 1) {
+    count += spreads[index].length;
+  }
+  return count;
+}
+
+/**
  * 连续滚动时判定“当前读到第几张”：取覆盖滚动位置上边缘的那张图。
  *
  * 布局未就绪的图跳过；全部未知时退回第一张有布局的图。
@@ -192,6 +227,9 @@ export function ReaderScreen({
       ? `已恢复上次进度：第 ${restored.index + 1} 张`
       : '',
   );
+  const [mode, setMode] = useState<'scroll' | 'paged'>('scroll');
+  const [pagedWidth, setPagedWidth] = useState(0);
+  const spreads = useMemo(() => buildSpreads(images), [images]);
 
   const scrollRef = useRef<ScrollView>(null);
   const blocks = useRef<(ImageBlock | undefined)[]>([]);
@@ -203,6 +241,7 @@ export function ReaderScreen({
   const restoreTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const indexRef = useRef(index);
   const offsetRatioRef = useRef(restored?.offsetRatio ?? 0);
+  const restoreRatioRef = useRef(restoredRatio);
   const loadingMore = useRef(false);
 
   useEffect(() => {
@@ -318,7 +357,7 @@ export function ReaderScreen({
     restorePending.current = false;
     restoreTarget.current = null;
     scrollRef.current?.scrollTo({
-      y: Math.max(0, block.y + restoredRatio * block.height),
+      y: Math.max(0, block.y + restoreRatioRef.current * block.height),
       animated: false,
     });
     setNotice(`已恢复上次进度：第 ${target + 1} 张`);
@@ -327,13 +366,13 @@ export function ReaderScreen({
       const late = blocks.current[clamped];
       if (late && late.height > 0) {
         scrollRef.current?.scrollTo({
-          y: Math.max(0, late.y + restoredRatio * late.height),
+          y: Math.max(0, late.y + restoreRatioRef.current * late.height),
           animated: false,
         });
       }
     }, 300);
     restoreTimers.current.push(timer);
-  }, [images, laidOut, restoredRatio]);
+  }, [images, laidOut]);
 
   useEffect(() => {
     const timers = restoreTimers.current;
@@ -387,6 +426,44 @@ export function ReaderScreen({
     }
     loadingMore.current = true;
     setBudget(nextPageBudget(pages, totalPages ?? pages));
+  };
+
+  const handlePagedScroll = (
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ): void => {
+    if (pagedWidth <= 0 || spreads.length === 0) {
+      return;
+    }
+    const next = Math.max(
+      0,
+      Math.min(
+        spreads.length - 1,
+        Math.round(event.nativeEvent.contentOffset.x / pagedWidth),
+      ),
+    );
+    const first = firstImageIndexOfSpread(spreads, next);
+    indexRef.current = first;
+    offsetRatioRef.current = 0;
+    setIndex(current => (current === first ? current : first));
+    persistProgress();
+    if (next >= spreads.length - 2) {
+      maybeLoadMore();
+    }
+  };
+
+  const toggleMode = (): void => {
+    persistProgress();
+    if (mode === 'scroll') {
+      setMode('paged');
+      return;
+    }
+    // 切回连续滚动：从当前图片顶部重新落位，双页没有图内比例。
+    restoreRatioRef.current = 0;
+    restoreTarget.current = indexRef.current;
+    restorePending.current = true;
+    setRestoreDone(false);
+    setMode('scroll');
+    setLaidOut(current => current + 1);
   };
 
   const handleScroll = (
@@ -495,7 +572,7 @@ export function ReaderScreen({
         <Text style={styles.info}>章节没有图片</Text>
       ) : null}
 
-      {images.length > 0 ? (
+      {images.length > 0 && mode === 'scroll' ? (
         <ScrollView
           ref={scrollRef}
           style={styles.scroll}
@@ -549,6 +626,50 @@ export function ReaderScreen({
         </ScrollView>
       ) : null}
 
+      {images.length > 0 && mode === 'paged' ? (
+        <View
+          style={styles.paged}
+          onLayout={event => setPagedWidth(event.nativeEvent.layout.width)}>
+          {pagedWidth > 0 ? (
+            <FlatList
+              data={spreads}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(_item, position) => `${position}`}
+              getItemLayout={(_data, position) => ({
+                length: pagedWidth,
+                offset: pagedWidth * position,
+                index: position,
+              })}
+              initialScrollIndex={Math.min(
+                spreadIndexFor(index),
+                Math.max(0, spreads.length - 1),
+              )}
+              onMomentumScrollEnd={handlePagedScroll}
+              renderItem={({ item, index: screenIndex }) => (
+                <View style={[styles.spread, { width: pagedWidth }]}>
+                  {item.map((uri, offset) => (
+                    <Image
+                      key={`${screenIndex}:${offset}:${uri}`}
+                      source={{ uri, headers }}
+                      style={styles.spreadImage}
+                      resizeMode="contain"
+                      onError={() =>
+                        markFailed(
+                          firstImageIndexOfSpread(spreads, screenIndex) + offset,
+                          uri,
+                        )
+                      }
+                    />
+                  ))}
+                </View>
+              )}
+            />
+          ) : null}
+        </View>
+      ) : null}
+
       <View style={styles.controls}>
         {hasChapterNav ? (
           <Pressable
@@ -582,6 +703,13 @@ export function ReaderScreen({
             <Text style={styles.buttonText}>下一章 ›</Text>
           </Pressable>
         ) : null}
+        <Pressable
+          onPress={toggleMode}
+          style={styles.button}>
+          <Text style={styles.buttonText}>
+            {mode === 'scroll' ? '双页' : '连续'}
+          </Text>
+        </Pressable>
         <Pressable
           onPress={() => setRetryToken(token => token + 1)}
           style={styles.button}>
@@ -645,6 +773,20 @@ const styles = StyleSheet.create({
   block: {
     width: '100%',
     justifyContent: 'center',
+  },
+  paged: {
+    flex: 1,
+    backgroundColor: '#0b1220',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  spread: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  spreadImage: {
+    flex: 1,
+    height: '100%',
   },
   image: {
     width: '100%',

@@ -1,10 +1,13 @@
 import {
+  buildSpreads,
   canLoadMorePages,
   dominantIndex,
+  firstImageIndexOfSpread,
   imageHeaders,
   IMAGE_USER_AGENT,
   nextPageBudget,
   preloadTargets,
+  spreadIndexFor,
 } from '../src/app/ReaderScreen';
 import {
   buildRoutePlan,
@@ -175,4 +178,29 @@ test('feeds a chapter URL from detail straight into gallery paging', async () =>
     'https://example.test/img/c1-2.jpg',
   ]);
   expect(result.stopReason).toBe('complete');
+});
+
+test('builds two-page spreads with a single cover first', () => {
+  expect(buildSpreads([])).toEqual([]);
+  expect(buildSpreads(['a'])).toEqual([['a']]);
+  expect(buildSpreads(['a', 'b'])).toEqual([['a'], ['b']]);
+  expect(buildSpreads(['a', 'b', 'c'])).toEqual([['a'], ['b', 'c']]);
+  expect(buildSpreads(['a', 'b', 'c', 'd'])).toEqual([
+    ['a'],
+    ['b', 'c'],
+    ['d'],
+  ]);
+});
+
+test('maps image indexes to spreads and back', () => {
+  const spreads = buildSpreads(['a', 'b', 'c', 'd']);
+
+  expect(spreadIndexFor(0)).toBe(0);
+  expect(spreadIndexFor(1)).toBe(1);
+  expect(spreadIndexFor(2)).toBe(1);
+  expect(spreadIndexFor(3)).toBe(2);
+
+  expect(firstImageIndexOfSpread(spreads, 0)).toBe(0);
+  expect(firstImageIndexOfSpread(spreads, 1)).toBe(1);
+  expect(firstImageIndexOfSpread(spreads, 2)).toBe(3);
 });
