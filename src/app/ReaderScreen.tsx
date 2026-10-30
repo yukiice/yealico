@@ -160,6 +160,11 @@ export function ReaderScreen({
     () => (chapterKey ? progress.get(siteId, chapterKey) : undefined),
     [chapterKey, progress, siteId],
   );
+  const restoredRatio = restored?.offsetRatio ?? 0;
+  // index 0 也可能需要恢复图内位置，不能只看 index。
+  const needsRestore =
+    restored !== undefined &&
+    (restored.index > 0 || (restored.offsetRatio ?? 0) > 0);
   // 恢复点可能在页预算之外；首次加载直接拉到覆盖它，最多 MAX_RESTORE_BUDGET 页。
   const initialBudget = useMemo(() => {
     const target = restored?.index ?? 0;
@@ -181,11 +186,9 @@ export function ReaderScreen({
   const [failed, setFailed] = useState<Record<number, boolean>>({});
   const [tokens, setTokens] = useState<Record<number, number>>({});
   const [laidOut, setLaidOut] = useState(0);
-  const [restoreDone, setRestoreDone] = useState(
-    !restored || restored.index <= 0,
-  );
+  const [restoreDone, setRestoreDone] = useState(!needsRestore);
   const [notice, setNotice] = useState(
-    restored && restored.index > 0
+    restored && (restored.index > 0 || (restored.offsetRatio ?? 0) > 0)
       ? `已恢复上次进度：第 ${restored.index + 1} 张`
       : '',
   );
@@ -194,8 +197,12 @@ export function ReaderScreen({
   const blocks = useRef<(ImageBlock | undefined)[]>([]);
   const reportedFailures = useRef<Set<number>>(new Set());
   const restoreTarget = useRef<number | null>(
-    restored && restored.index > 0 ? restored.index : null,
+    needsRestore && restored ? restored.index : null,
   );
+  const restorePending = useRef(needsRestore);
+  const restoreTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const indexRef = useRef(index);
+  const offsetRatioRef = useRef(restored?.offsetRatio ?? 0);
   const loadingMore = useRef(false);
 
   useEffect(() => {
@@ -289,39 +296,65 @@ export function ReaderScreen({
   }, [images, index]);
 
   useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
+
+  useEffect(() => {
     loadingMore.current = false;
   }, [images.length, pages]);
 
-  // 恢复：等目标图的布局就绪后滚到它的顶部；位次按图片索引，不保留图内像素偏移。
+  // 恢复：先按当前布局滚到目标位置，再延迟校正一次，等图片真实高度替换占位高度。
+  // 用 ref 管理 pending，避免 setRestoreDone 触发 effect cleanup 把校正定时器清掉。
   useEffect(() => {
-    if (restoreDone) {
+    if (!restorePending.current) {
       return;
     }
-    const target = restoreTarget.current;
-    if (target === null) {
-      setRestoreDone(true);
-      return;
-    }
+    const target = restoreTarget.current ?? 0;
     const clamped = Math.min(target, Math.max(0, images.length - 1));
     const block = blocks.current[clamped];
-    if (!block) {
+    if (!block || block.height <= 0) {
       return;
     }
+    restorePending.current = false;
     restoreTarget.current = null;
-    scrollRef.current?.scrollTo({ y: Math.max(0, block.y), animated: false });
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, block.y + restoredRatio * block.height),
+      animated: false,
+    });
     setNotice(`已恢复上次进度：第 ${target + 1} 张`);
     setRestoreDone(true);
-  }, [images.length, laidOut, restoreDone]);
+    const timer = setTimeout(() => {
+      const late = blocks.current[clamped];
+      if (late && late.height > 0) {
+        scrollRef.current?.scrollTo({
+          y: Math.max(0, late.y + restoredRatio * late.height),
+          animated: false,
+        });
+      }
+    }, 300);
+    restoreTimers.current.push(timer);
+  }, [images, laidOut, restoredRatio]);
 
-  // 恢复完成前不写盘，避免把页预算内的临时位次覆盖掉真实进度。
   useEffect(() => {
+    const timers = restoreTimers.current;
+    return () => {
+      timers.forEach(clearTimeout);
+    };
+  }, []);
+
+  /**
+   * 只在滚动结束、返回或切章时写盘；滚动过程中只更新 ref，避免每帧重写整库。
+   * 恢复完成前不写，避免把页预算内的临时位次覆盖掉真实进度。
+   */
+  const persistProgress = (): void => {
     if (!restoreDone) {
       return;
     }
     if (!chapterKey || !chapterUrl || images.length === 0) {
       return;
     }
-    if (index >= images.length) {
+    const currentIndex = indexRef.current;
+    if (currentIndex >= images.length) {
       return;
     }
     progress.save({
@@ -330,19 +363,11 @@ export function ReaderScreen({
       chapterUrl,
       chapterTitle:
         typeof chapter.title === 'string' ? chapter.title : undefined,
-      index,
+      index: currentIndex,
+      offsetRatio: offsetRatioRef.current,
       total: images.length,
     });
-  }, [
-    chapter,
-    chapterKey,
-    chapterUrl,
-    images.length,
-    index,
-    progress,
-    restoreDone,
-    siteId,
-  ]);
+  };
 
   const moreBudget = canLoadMorePages(pages, totalPages)
     ? nextPageBudget(pages, totalPages ?? pages)
@@ -375,8 +400,16 @@ export function ReaderScreen({
     if (atBottom) {
       // 最后一张很高时，视口上缘可能还停在上一张；到底就认最后一张。
       setIndex(images.length - 1);
+      offsetRatioRef.current = 1;
     } else {
       const nextIndex = dominantIndex(contentOffset.y, blocks.current);
+      const block = blocks.current[nextIndex];
+      if (block && block.height > 0) {
+        offsetRatioRef.current = Math.min(
+          1,
+          Math.max(0, (contentOffset.y - block.y) / block.height),
+        );
+      }
       setIndex(current => (current === nextIndex ? current : nextIndex));
     }
     const nearBottom =
@@ -435,7 +468,12 @@ export function ReaderScreen({
 
   return (
     <View style={styles.root}>
-      <Pressable onPress={onBack} style={styles.backButton}>
+      <Pressable
+        onPress={() => {
+          persistProgress();
+          onBack();
+        }}
+        style={styles.backButton}>
         <Text style={styles.backText}>← 返回详情</Text>
       </Pressable>
       <Text style={styles.title} numberOfLines={1}>
@@ -468,6 +506,8 @@ export function ReaderScreen({
               setNotice('');
             }
           }}
+          onScrollEndDrag={persistProgress}
+          onMomentumScrollEnd={persistProgress}
           scrollEventThrottle={32}
           onContentSizeChange={() => setLaidOut(current => current + 1)}>
           {images.map((uri, position) => (
@@ -512,7 +552,10 @@ export function ReaderScreen({
       <View style={styles.controls}>
         {hasChapterNav ? (
           <Pressable
-            onPress={() => onSelectChapter?.(chapterIndex - 1)}
+            onPress={() => {
+              persistProgress();
+              onSelectChapter?.(chapterIndex - 1);
+            }}
             disabled={!hasPrevChapter}
             style={[styles.button, !hasPrevChapter && styles.buttonDisabled]}>
             <Text style={styles.buttonText}>‹ 上一章</Text>
@@ -527,7 +570,10 @@ export function ReaderScreen({
         ) : null}
         {hasChapterNav ? (
           <Pressable
-            onPress={() => onSelectChapter?.(chapterIndex + 1)}
+            onPress={() => {
+              persistProgress();
+              onSelectChapter?.(chapterIndex + 1);
+            }}
             disabled={!hasNextChapter || chapterHasMorePages}
             style={[
               styles.button,

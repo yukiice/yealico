@@ -283,3 +283,72 @@ test('describes the chapter row with stored progress', () => {
     }),
   ).toBe('阅读 · 789');
 });
+
+test('stores the in-image offset and clamps it', () => {
+  const progress = new ReadingProgressRepository();
+  progress.save({
+    siteId: 'site-a',
+    chapterKey: '1',
+    chapterUrl: 'https://a.test/1.html',
+    index: 2,
+    offsetRatio: 0.4567,
+    total: 8,
+  });
+
+  expect(progress.get('site-a', '1')).toMatchObject({
+    index: 2,
+    offsetRatio: 0.457,
+  });
+
+  progress.save({
+    siteId: 'site-a',
+    chapterKey: '1',
+    chapterUrl: 'https://a.test/1.html',
+    index: 2,
+    offsetRatio: 2,
+    total: 8,
+  });
+
+  expect(progress.get('site-a', '1')?.offsetRatio).toBe(1);
+});
+
+test('keeps old progress entries without an offset ratio', () => {
+  const library = parseSiteLibrary(
+    JSON.stringify({
+      version: 2,
+      sites: [],
+      progress: [
+        {
+          siteId: 'site-a',
+          chapterKey: '1',
+          chapterUrl: 'https://a.test/1.html',
+          index: 1,
+          updatedAt: '2026-10-21T00:00:00.000Z',
+        },
+      ],
+    }),
+  );
+
+  expect(library.progress[0].offsetRatio).toBeUndefined();
+});
+
+test('rewrites when only the in-image offset changes', () => {
+  const progress = new ReadingProgressRepository();
+  let changes = 0;
+  progress.onChange = () => {
+    changes += 1;
+  };
+  const base = {
+    siteId: 'site-a',
+    chapterKey: '1',
+    chapterUrl: 'https://a.test/1.html',
+    index: 2,
+    total: 4,
+  };
+
+  progress.save({ ...base, offsetRatio: 0.2 });
+  progress.save({ ...base, offsetRatio: 0.2 });
+  progress.save({ ...base, offsetRatio: 0.6 });
+
+  expect(changes).toBe(2);
+});

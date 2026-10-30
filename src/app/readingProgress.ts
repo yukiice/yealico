@@ -11,6 +11,8 @@ export interface ReadingProgressEntry {
   chapterTitle?: string;
   /** 当前图片下标，0 起。 */
   index: number;
+  /** 当前图片内的滚动比例（0 = 图片顶部对齐视口顶部，1 = 图片底部）。 */
+  offsetRatio?: number;
   /** 上次保存时该章节已加载的图片数，用于恢复时判断是否越界。 */
   total?: number;
   updatedAt: string;
@@ -22,6 +24,7 @@ export interface ReadingProgressInput {
   chapterUrl: string;
   chapterTitle?: string;
   index: number;
+  offsetRatio?: number;
   total?: number;
 }
 
@@ -57,6 +60,15 @@ function normalizeIndex(value: unknown): number {
   return Math.max(0, Math.floor(value));
 }
 
+/** 图内偏移比例：clamp 到 0–1，保留 3 位小数，避免浮点噪声触发多余写盘。 */
+function normalizeRatio(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return undefined;
+  }
+  const clamped = Math.min(1, Math.max(0, value));
+  return Math.round(clamped * 1000) / 1000;
+}
+
 function normalizeEntry(value: unknown): ReadingProgressEntry | undefined {
   if (typeof value !== 'object' || value === null) {
     return undefined;
@@ -82,6 +94,10 @@ function normalizeEntry(value: unknown): ReadingProgressEntry | undefined {
   }
   if (typeof raw.total === 'number' && Number.isFinite(raw.total)) {
     entry.total = Math.max(0, Math.floor(raw.total));
+  }
+  const ratio = normalizeRatio(raw.offsetRatio);
+  if (ratio !== undefined) {
+    entry.offsetRatio = ratio;
   }
   return entry;
 }
@@ -158,14 +174,16 @@ export class ReadingProgressRepository {
       return undefined;
     }
     const index = normalizeIndex(input.index);
+    const offsetRatio = normalizeRatio(input.offsetRatio);
     const existing = this.entries.find(
       item =>
         item.siteId === input.siteId && item.chapterKey === input.chapterKey,
     );
-    // 位次、总数、地址都没变就不落盘，避免翻页时反复重写整个库。
+    // 位次、图内偏移、总数、地址都没变就不落盘，避免滚动时反复重写整个库。
     if (
       existing &&
       existing.index === index &&
+      (existing.offsetRatio ?? 0) === (offsetRatio ?? 0) &&
       existing.total === input.total &&
       existing.chapterUrl === input.chapterUrl
     ) {
@@ -181,6 +199,9 @@ export class ReadingProgressRepository {
     };
     if (input.chapterTitle) {
       next.chapterTitle = input.chapterTitle;
+    }
+    if (offsetRatio !== undefined) {
+      next.offsetRatio = offsetRatio;
     }
     if (input.total !== undefined) {
       next.total = normalizeIndex(input.total);

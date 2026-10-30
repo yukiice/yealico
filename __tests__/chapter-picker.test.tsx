@@ -76,4 +76,9 @@ test('opens the chapter picker and filters by query', async () => {
   });
 
   expect(tree.root.findByType(FlatList).props.data).toEqual([4]);
+
+  // FlatList 的首屏调度有延迟更新；测试结束前卸载，避免定时器落盘后打日志。
+  await ReactTestRenderer.act(async () => {
+    tree.unmount();
+  });
 });
