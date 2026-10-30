@@ -135,6 +135,13 @@ export function firstImageIndexOfSpread(
 }
 
 /**
+ * 双页模式下的视觉顺序：RTL 时右边先读，所以把屏内图片反转。
+ */
+export function orderedSpread(images: string[], rtl: boolean): string[] {
+  return rtl ? [...images].reverse() : images;
+}
+
+/**
  * 连续滚动时判定“当前读到第几张”：取覆盖滚动位置上边缘的那张图。
  *
  * 布局未就绪的图跳过；全部未知时退回第一张有布局的图。
@@ -228,6 +235,7 @@ export function ReaderScreen({
       : '',
   );
   const [mode, setMode] = useState<'scroll' | 'paged'>('scroll');
+  const [rtl, setRtl] = useState(false);
   const [pagedWidth, setPagedWidth] = useState(0);
   const spreads = useMemo(() => buildSpreads(images), [images]);
 
@@ -632,8 +640,10 @@ export function ReaderScreen({
           onLayout={event => setPagedWidth(event.nativeEvent.layout.width)}>
           {pagedWidth > 0 ? (
             <FlatList
+              key={rtl ? 'rtl' : 'ltr'}
               data={spreads}
               horizontal
+              inverted={rtl}
               pagingEnabled
               showsHorizontalScrollIndicator={false}
               keyExtractor={(_item, position) => `${position}`}
@@ -647,24 +657,27 @@ export function ReaderScreen({
                 Math.max(0, spreads.length - 1),
               )}
               onMomentumScrollEnd={handlePagedScroll}
-              renderItem={({ item, index: screenIndex }) => (
-                <View style={[styles.spread, { width: pagedWidth }]}>
-                  {item.map((uri, offset) => (
-                    <Image
-                      key={`${screenIndex}:${offset}:${uri}`}
-                      source={{ uri, headers }}
-                      style={styles.spreadImage}
-                      resizeMode="contain"
-                      onError={() =>
-                        markFailed(
-                          firstImageIndexOfSpread(spreads, screenIndex) + offset,
-                          uri,
-                        )
-                      }
-                    />
-                  ))}
-                </View>
-              )}
+              renderItem={({ item, index: screenIndex }) => {
+                const first = firstImageIndexOfSpread(spreads, screenIndex);
+                const ordered = item
+                  .map((uri, offset) => ({ uri, original: first + offset }))
+                  .sort((a, b) =>
+                    rtl ? b.original - a.original : a.original - b.original,
+                  );
+                return (
+                  <View style={[styles.spread, { width: pagedWidth }]}>
+                    {ordered.map(({ uri, original }) => (
+                      <Image
+                        key={`${screenIndex}:${original}:${uri}`}
+                        source={{ uri, headers }}
+                        style={styles.spreadImage}
+                        resizeMode="contain"
+                        onError={() => markFailed(original, uri)}
+                      />
+                    ))}
+                  </View>
+                );
+              }}
             />
           ) : null}
         </View>
@@ -701,6 +714,15 @@ export function ReaderScreen({
               (!hasNextChapter || chapterHasMorePages) && styles.buttonDisabled,
             ]}>
             <Text style={styles.buttonText}>下一章 ›</Text>
+          </Pressable>
+        ) : null}
+        {mode === 'paged' ? (
+          <Pressable
+            onPress={() => setRtl(value => !value)}
+            style={styles.button}>
+            <Text style={styles.buttonText}>
+              {rtl ? '左到右' : '右到左'}
+            </Text>
           </Pressable>
         ) : null}
         <Pressable

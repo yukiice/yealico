@@ -6,6 +6,7 @@ import {
   imageHeaders,
   IMAGE_USER_AGENT,
   nextPageBudget,
+  orderedSpread,
   preloadTargets,
   spreadIndexFor,
 } from '../src/app/ReaderScreen';
@@ -203,4 +204,11 @@ test('maps image indexes to spreads and back', () => {
   expect(firstImageIndexOfSpread(spreads, 0)).toBe(0);
   expect(firstImageIndexOfSpread(spreads, 1)).toBe(1);
   expect(firstImageIndexOfSpread(spreads, 2)).toBe(3);
+});
+
+test('orders spread images for right-to-left reading', () => {
+  expect(orderedSpread(['a', 'b'], false)).toEqual(['a', 'b']);
+  expect(orderedSpread(['a', 'b'], true)).toEqual(['b', 'a']);
+  expect(orderedSpread(['a'], true)).toEqual(['a']);
+  expect(orderedSpread([], true)).toEqual([]);
 });
