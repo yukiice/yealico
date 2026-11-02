@@ -80,6 +80,7 @@ docs/architecture/       阶段基线与运行时记录
 - [规则语义基线](docs/reference/yealico-rule-model.md)
 - [待确认项](docs/rules/open-questions.md)
 - [QR 研究结论（扫码链路已移除）](docs/rules/qr-import.md)
+- [mangacopy 规则适配现状](docs/rules/mangacopy-adaptation.md)
 - [macOS 容器规则提取](docs/rules/yealico-macos-sqlite.md)
 - [Yealico 导出 JSON 格式](docs/rules/yealico-export-format.md)
 - [用 Yealico 客户端取规则明文](docs/rules/yealico-rule-extraction.md)
