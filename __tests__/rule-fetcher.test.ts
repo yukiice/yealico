@@ -113,3 +113,35 @@ test('aborts a request after the configured timeout', async () => {
     jest.useRealTimers();
   }
 });
+
+test('fills browser headers and keeps rule overrides', async () => {
+  const calls: Array<{ init?: FetchInitLike }> = [];
+  const fetcher = createFetchRuleFetcher({
+    fetchImpl: async (_url, init) => {
+      calls.push({ init });
+      return response('ok');
+    },
+  });
+
+  await fetcher.fetch({
+    url: 'https://example.test/',
+    method: 'GET',
+    headers: { 'x-test': '1' },
+  });
+  expect(calls[0].init?.headers).toMatchObject({
+    'x-test': '1',
+    'User-Agent': expect.stringContaining('Mozilla'),
+    Accept: expect.stringContaining('text/html'),
+    'Accept-Language': expect.stringContaining('zh-CN'),
+  });
+
+  await fetcher.fetch({
+    url: 'https://example.test/',
+    method: 'GET',
+    headers: { 'user-agent': 'Custom', Accept: 'application/json' },
+  });
+  const headers = calls[1].init?.headers ?? {};
+  expect(headers['user-agent']).toBe('Custom');
+  expect(headers.Accept).toBe('application/json');
+  expect(headers['User-Agent']).toBeUndefined();
+});

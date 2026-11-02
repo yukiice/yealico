@@ -35,6 +35,38 @@ export interface FetchRuleFetcherOptions {
   credentials?: string;
 }
 
+/** 默认浏览器请求头：站点常按 UA / Accept 返回不同页面，缺省时用桌面浏览器形态。 */
+export const BROWSER_HEADERS: Record<string, string> = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+    '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  Accept:
+    'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.6',
+};
+
+/**
+ * 合并默认浏览器头与规则头；规则显式给出的同名头优先（大小写不敏感）。
+ */
+export function withBrowserHeaders(
+  headers?: Record<string, string>,
+): Record<string, string> {
+  const merged: Record<string, string> = { ...BROWSER_HEADERS };
+  if (!headers) {
+    return merged;
+  }
+  for (const [key, value] of Object.entries(headers)) {
+    const existing = Object.keys(merged).find(
+      name => name.toLowerCase() === key.toLowerCase(),
+    );
+    if (existing) {
+      delete merged[existing];
+    }
+    merged[key] = value;
+  }
+  return merged;
+}
+
 interface AbortControllerLike {
   signal: unknown;
   abort(): void;
@@ -105,7 +137,7 @@ export function createFetchRuleFetcher(
       try {
         const response = await fetchImpl(request.url, {
           method: request.method,
-          headers: request.headers,
+          headers: withBrowserHeaders(request.headers),
           ...(request.body !== undefined ? { body: request.body } : {}),
           ...(controller ? { signal: controller.signal } : {}),
           credentials,
