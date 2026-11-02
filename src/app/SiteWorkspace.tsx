@@ -15,6 +15,7 @@ import {
 } from '../engine';
 import type { ExtractItem, RuleDocument } from '../engine';
 import type { StoredSite } from './ruleImport';
+import { importRuleText } from './ruleImport';
 import { DebugScreen } from './DebugScreen';
 import { DebugSession } from './debugReport';
 import { DetailScreen } from './DetailScreen';
@@ -47,9 +48,13 @@ export function SiteWorkspace({
   progress: ReadingProgressRepository;
   onBack: () => void;
 }): React.JSX.Element {
-  const pages = useMemo(() => listRulePages(site.rule), [site.rule]);
+  const rule = useMemo(() => {
+    const rebuilt = importRuleText(site.raw, site.source).site;
+    return rebuilt?.rule ?? site.rule;
+  }, [site.raw, site.rule, site.source]);
+  const pages = useMemo(() => listRulePages(rule), [rule]);
   const [page, setPage] = useState<number | undefined>(() =>
-    defaultPageFor(site.rule),
+    defaultPageFor(rule),
   );
   const [items, setItems] = useState<ExtractItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,12 +66,12 @@ export function SiteWorkspace({
   const built = useMemo(() => {
     if (pages.length === 0) {
       return {
-        rule: site.rule,
-        plan: buildRoutePlan(site.rule),
+        rule,
+        plan: buildRoutePlan(rule),
       };
     }
-    return buildPagePlan(site.rule, page ?? 0);
-  }, [pages.length, page, site.rule]);
+    return buildPagePlan(rule, page ?? 0);
+  }, [pages.length, page, rule]);
   const fetcher = useMemo(
     () => createRuleFetcherForPlan(built.plan),
     [built.plan],

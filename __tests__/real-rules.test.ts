@@ -182,7 +182,7 @@ const mangabz = loadSite('site-5-');
 );
 
 (mangaCopy ? test : test.skip)(
-  'extracted 拷貝漫畫 photoAlbumLink resolves a second-level chapters URL',
+  'extracted 拷貝漫畫 no longer resolves an encrypted second-level chapters URL',
   () => {
     if (!mangaCopy) {
       return;
@@ -200,15 +200,12 @@ const mangabz = loadSite('site-5-');
       },
     );
 
-    expect(result.photoAlbumUrl).toBe(
-      'https://www.mangacopy.com/comicdetail/abc/chapters',
-    );
-    expect(result.diagnostics).toEqual(
+    // 新版详情页没有 .alert-body-input，且 /comicdetail/.../chapters 返回加密串，
+    // 规则不再生成该二级请求。
+    expect(result.photoAlbumUrl).toBeUndefined();
+    expect(result.diagnostics).not.toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          fieldPath: 'detailRule.photoAlbumLink',
-          code: 'SECOND_LEVEL_REQUIRED',
-        }),
+        expect.objectContaining({ code: 'SECOND_LEVEL_REQUIRED' }),
       ]),
     );
   },

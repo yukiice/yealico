@@ -7,7 +7,7 @@
     "version": "2.15@wc3818290",
     "author": "wc3818290",
     "displayMode": "default, collection, default, default",
-    "flags": "",
+    "flags": "jsNeededIndex,jsNeededDetail",
     "extractedAt": "2026-10-20T10:58:41.286955+00:00"
   },
   "urls": {
@@ -63,7 +63,8 @@
       },
       "chapterRule": {
         "idCode": {
-          "regex": "comic/(.+)",
+          "regex": "chapter/([^/?#]+)",
+          "replacement": "$1",
           "selector": "this",
           "function": "attr",
           "param": "href"
@@ -73,16 +74,15 @@
           "function": "text",
           "selector": "li"
         },
+        "url": {
+          "selector": "this",
+          "function": "attr",
+          "param": "href",
+          "absoluteUrl": true
+        },
         "item": {
-          "selector": "ul.table-all a"
+          "selector": ".table-default-box .tab-pane.active ul a[href*='/chapter/']"
         }
-      },
-      "photoAlbumLink": {
-        "regex": "comic%2F(.+)",
-        "function": "attr",
-        "param": "value",
-        "replacement": "https://www.{domain:}/comicdetail/$1/chapters",
-        "selector": ".alert-body-input"
       },
       "tagRule": {
         "name": {
@@ -120,15 +120,12 @@
     },
     "gallery": {
       "item": {
-        "function": "attr",
-        "param": "class",
-        "replacement": "ul.comicContent-image-all li img",
-        "selector": "div.disData"
+        "selector": "ul.comicContent-list li img"
       },
       "image": {
         "function": "attr",
         "selector": "this",
-        "param": "class"
+        "param": "data-src, src"
       }
     },
     "series": {
