@@ -1,6 +1,8 @@
 package com.yealico
 
 import android.app.Application
+import android.content.pm.ApplicationInfo
+import android.webkit.WebView
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
@@ -23,6 +25,9 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    if ((applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+      WebView.setWebContentsDebuggingEnabled(true)
+    }
     loadReactNative(this)
   }
 }

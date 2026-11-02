@@ -63,27 +63,38 @@
 
 旧规则 `div.disData` + `class` 替换已被取代。该章节样例解析出 3 张图。
 
-## 5. 真机详情页仍超时（未解决）
+## 5. 真机详情页：章节接口按 Client Hints 分流
 
-真机 WebView 详情页报：
+真机 WebView 已设置桌面 UA，实际停在桌面路由 `https://www.mangacopy.com/comic/{slug}`（不是 h5），页面标题也是桌面版。但章节容器是空的：
 
-```text
-NETWORK_ERROR: WebView render timed out after 15000ms
-manga=no | imgs=2 | wait=.table-default-box .tab-pane.active ul a[href*='/chapter/']
+```html
+<div id="default全部" role="tabpanel" class="tab-pane fade show active">
+  <ul></ul>
+  <ul class="page-all comic-detail-page">...分页控件...</ul>
+</div>
 ```
 
-定位过程：
+用调试落盘抓到的 WebView DOM 确认：`.table-default-box .tab-pane.active ul` 内没有章节节点，等待选择器 `...ul a[href*='/chapter/']` 不可能命中。
 
-- 移动 UA 抓取详情页得到 Vue 2 + Vant 的移动版 SPA（`chapterList`、`chapterItem`），章节节点 `<div class="chapterItem"><span>1-...</span></div>`，`id=""`、无 `href`，章节 URL 只在 Vuex/点击事件里。
-- 桌面 UA 抓取同一 URL 得到桌面版结构（第 3 节），说明站点按运行环境给两套渲染。
-- WebView 已设置桌面 `userAgentString`，但 Android WebView 的 Client Hints（`navigator.userAgentData.mobile`）仍为 true；实验过 UA-CH 覆盖脚本 + 主文档请求拦截注入 + `useWideViewPort`，真机仍超时，已回滚这些原生改动，避免影响其他站点。
-- 因此当前规则在桌面渲染路径正确，但真机 WebView 走移动版路径时拿不到章节 `href`。
+根因在章节接口 `/comicdetail/{slug}/chapters`：
 
-下一步可选方案：
+| 请求头 | 响应 |
+| --- | --- |
+| 桌面 UA + `Sec-CH-UA-Mobile: ?0` | 200，4898 字节完整加密章节串 |
+| 桌面 UA + `Sec-CH-UA-Mobile: ?1` | 200，610 字节受限数据 |
 
-1. 在 WebView 内执行自定义 JS，读取移动版 Vuex/组件数据里的章节列表，注入 DOM 后再解析。
-2. 适配移动版 API（`copyh5` bundle 中的 `/api/v3/*` 接口），用 JSONPath 规则提取。
-3. 由原生层用桌面请求头抓 HTML，再 `loadDataWithBaseURL` 渲染，绕开 Client Hints。
+Android WebView 的 `userAgentString` 可设为桌面，但 UA-CH 仍由设备决定（移动），接口因此返回受限数据，页面 JS 解密后没有章节。
+
+已实现：`WebViewRendererModule.shouldInterceptRequest` 只拦截 `/comicdetail/*/chapters`，用桌面 CH 头（`Sec-CH-UA-Mobile: ?0`、`Sec-CH-UA-Platform: "macOS"`、`Sec-CH-UA`、桌面 UA、Referer、Cookie）代发请求，再把响应交给页面 JS 解密。主文档不拦截，避免影响其他站点与登录态。
+
+另外两处配套改动：
+
+- `webviewFetcher` 把 WebView 渲染超时下限提到 30s（桌面详情页渲染约 9s，真机更慢，15s 容易截断）。
+- 渲染器超时前把 `document.documentElement.outerHTML` 写到 `files/yelico-last-render.html`（debug 构建），用于真机 DOM 排查。
+
+## 5.1 真机安装验证受阻
+
+vivo 的 `PackageInstallerActivity` 对外部来源 APK 强制显示“安全守护提示”，需要勾选“已了解风险”后继续安装。ADB `input tap`/`swipe` 在复选框上无效果（坐标与窗口焦点已确认正确），`pm install`、`pm install-create/commit` 也会拉起该界面。因此本轮新原生包尚未在真机完成安装验证，章节拦截逻辑目前只有本地构建产物与接口层证据。
 
 ## 6. 规则更新机制修复
 
@@ -101,6 +112,6 @@ const rule = useMemo(() => {
 ## 7. 结论
 
 - 列表链路可用：`jsNeededIndex` + WebView + 桌面请求头，真机已验证。
-- 详情 / 章节：桌面渲染 DOM 的规则已修正并用引擎测试验证；真机 WebView 的移动版渲染路径仍未打通。
+- 详情 / 章节：桌面渲染 DOM 的规则已修正并用引擎测试验证；章节接口按 UA-CH 分流已定位，拦截方案已实现，待真机装包验证。
 - 图库：规则已按新版结构改写，待详情章节可进入后在真机复核。
 - 这是规则漂移 + WebView 环境差异，不是 App 的解析或网络缺陷；同一份请求头在本地合成站点上可正常解析。

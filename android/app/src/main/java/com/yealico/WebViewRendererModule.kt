@@ -7,7 +7,11 @@ import android.view.ViewGroup
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.CookieManager
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.widget.FrameLayout
+import java.net.HttpURLConnection
+import java.net.URL
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -98,6 +102,52 @@ class WebViewRendererModule(
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
         webViewClient = object : WebViewClient() {
+          override fun shouldInterceptRequest(
+            view: WebView,
+            request: WebResourceRequest,
+          ): WebResourceResponse? {
+            // mangacopy 的章节接口按 Client Hints 返回不同数据：桌面 CH 是完整
+            // 加密章节串，移动 CH 是受限数据。Android WebView 无法修改 UA-CH，
+            // 所以对这个接口用桌面请求头代发，再把响应交给页面 JS 解密。
+            val target = request.url.toString()
+            if (!target.contains("/comicdetail/") || !target.contains("/chapters")) {
+              return null
+            }
+            return try {
+              val connection = URL(target).openConnection() as HttpURLConnection
+              connection.connectTimeout = 15_000
+              connection.readTimeout = 15_000
+              connection.instanceFollowRedirects = true
+              connection.setRequestProperty("User-Agent", browserUserAgent)
+              connection.setRequestProperty("Accept", "application/json, text/plain, */*")
+              connection.setRequestProperty("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+              connection.setRequestProperty("Sec-CH-UA-Mobile", "?0")
+              connection.setRequestProperty("Sec-CH-UA-Platform", "\"macOS\"")
+              connection.setRequestProperty(
+                "Sec-CH-UA",
+                "\"Chromium\";v=\"126\", \"Google Chrome\";v=\"126\", \"Not-A.Brand\";v=\"99\"",
+              )
+              val referer = request.requestHeaders["Referer"]
+                ?: request.requestHeaders["referer"]
+              if (!referer.isNullOrEmpty()) {
+                connection.setRequestProperty("Referer", referer)
+              }
+              val cookie = CookieManager.getInstance().getCookie(target)
+              if (!cookie.isNullOrEmpty()) {
+                connection.setRequestProperty("Cookie", cookie)
+              }
+              connection.connect()
+              if (connection.responseCode !in 200..299) {
+                connection.disconnect()
+                return null
+              }
+              val mime = connection.contentType?.substringBefore(';') ?: "application/json"
+              WebResourceResponse(mime, "utf-8", connection.inputStream)
+            } catch (error: Exception) {
+              null
+            }
+          }
+
           override fun onPageFinished(view: WebView, finishedUrl: String) {
             if (pollingStarted) {
               return
@@ -169,12 +219,25 @@ class WebViewRendererModule(
           "}).join(' ; ')"
       webView.evaluateJavascript(infoScript) { raw ->
         val info = decodeJavascriptString(raw)
-        fail(
-          promise,
-          container,
-          "timeout",
-          "WebView render timed out after ${timeoutMs}ms: $info",
-        )
+        webView.evaluateJavascript(
+          "(function(){try{return document.documentElement.outerHTML;}catch(e){return '';}})()",
+        ) { htmlRaw ->
+          val debugHtml = decodeJavascriptString(htmlRaw)
+          try {
+            java.io.File(
+              reactApplicationContext.filesDir,
+              "yelico-last-render.html",
+            ).writeText(debugHtml)
+          } catch (error: Exception) {
+            // 调试落盘失败不影响主流程。
+          }
+          fail(
+            promise,
+            container,
+            "timeout",
+            "WebView render timed out after ${timeoutMs}ms: $info",
+          )
+        }
       }
       return
     }
