@@ -103,7 +103,7 @@ vivo 的 `PackageInstallerActivity` 对外部来源 APK 强制显示“安全守
 - 章节 (16)，标题 `1-有点粘人的假小子女友` / `2-距离感很近、假小子女友` / `3-想摸的话要摸吗～？`，idCode 为完整 uuid。
 - 说明 `/comicdetail/*/chapters` 的桌面 CH 代发请求生效，页面 JS 能解密并渲染章节。
 
-随后再次进入同一详情页时连续超时（`wait=...ul a[href*='/chapter/']`），用 curl 复测接口仍返回 4898 字节完整数据，疑似站点对短时间重复访问的风控/限流，尚未确认。
+随后再次进入同一详情页时连续超时（`wait=...ul a[href*='/chapter/']`）。复测时发现：桌面 CH 的 curl 也从此前的 4898 字节降到 610 字节，说明站点已对当前 IP/会话限流，超时不是代码回归。18:44 的成功证明拦截链路可行，需等风控解除后复测。
 
 进入阅读器（第 5 章）时发现图库等待选择器是 `this`：`loadGallery` 取了 `galleryRule.image`（`selector: this`），页面永远不可能出现该元素。已改为优先取 `pageReadyMarker`、`item`、`image`、`totalPages`，本地检查通过；真机图库尚未复测。
 
