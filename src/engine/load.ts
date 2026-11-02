@@ -503,9 +503,12 @@ export async function loadGalleryPages(
   const urls: string[] = [];
   const images: string[] = [];
   const seen = new Set<string>();
+  const galleryRule = rule.galleryRule as Record<string, unknown> | undefined;
   const waitForGallery =
-    waitSelector(rule.galleryRule?.image) ??
-    waitSelector(rule.galleryRule?.totalPages);
+    waitSelector(galleryRule?.pageReadyMarker) ??
+    waitSelector(galleryRule?.item) ??
+    waitSelector(galleryRule?.image) ??
+    waitSelector(galleryRule?.totalPages);
 
   const first = buildGalleryPageUrls(chapterUrlTemplate, undefined, context, 1);
   diagnostics.push(...first.diagnostics);

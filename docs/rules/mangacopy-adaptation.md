@@ -92,9 +92,20 @@ Android WebView 的 `userAgentString` 可设为桌面，但 UA-CH 仍由设备�
 - `webviewFetcher` 把 WebView 渲染超时下限提到 30s（桌面详情页渲染约 9s，真机更慢，15s 容易截断）。
 - 渲染器超时前把 `document.documentElement.outerHTML` 写到 `files/yelico-last-render.html`（debug 构建），用于真机 DOM 排查。
 
-## 5.1 真机安装验证受阻
+## 5.1 真机安装验证
 
-vivo 的 `PackageInstallerActivity` 对外部来源 APK 强制显示“安全守护提示”，需要勾选“已了解风险”后继续安装。ADB `input tap`/`swipe` 在复选框上无效果（坐标与窗口焦点已确认正确），`pm install`、`pm install-create/commit` 也会拉起该界面。因此本轮新原生包尚未在真机完成安装验证，章节拦截逻辑目前只有本地构建产物与接口层证据。
+vivo 的 `PackageInstallerActivity` 对外部来源 APK 强制显示“安全守护提示”。ADB `input tap`/`swipe` 无法勾选复选框（坐标与窗口焦点已确认正确），但 `pm install` 在界面关闭后仍会提交，安装时间戳可确认成功（18:41、18:56 两次）。代价是每次装包都要处理一次该界面。
+
+## 5.2 真机结果
+
+新原生包（拦截 + 30s 超时）安装后，18:44 详情页首次成功：
+
+- 章节 (16)，标题 `1-有点粘人的假小子女友` / `2-距离感很近、假小子女友` / `3-想摸的话要摸吗～？`，idCode 为完整 uuid。
+- 说明 `/comicdetail/*/chapters` 的桌面 CH 代发请求生效，页面 JS 能解密并渲染章节。
+
+随后再次进入同一详情页时连续超时（`wait=...ul a[href*='/chapter/']`），用 curl 复测接口仍返回 4898 字节完整数据，疑似站点对短时间重复访问的风控/限流，尚未确认。
+
+进入阅读器（第 5 章）时发现图库等待选择器是 `this`：`loadGallery` 取了 `galleryRule.image`（`selector: this`），页面永远不可能出现该元素。已改为优先取 `pageReadyMarker`、`item`、`image`、`totalPages`，本地检查通过；真机图库尚未复测。
 
 ## 6. 规则更新机制修复
 

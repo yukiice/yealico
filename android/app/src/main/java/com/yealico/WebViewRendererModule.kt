@@ -121,6 +121,8 @@ class WebViewRendererModule(
               connection.setRequestProperty("User-Agent", browserUserAgent)
               connection.setRequestProperty("Accept", "application/json, text/plain, */*")
               connection.setRequestProperty("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+              // WebResourceResponse 不会解压 gzip，显式要未压缩响应。
+              connection.setRequestProperty("Accept-Encoding", "identity")
               connection.setRequestProperty("Sec-CH-UA-Mobile", "?0")
               connection.setRequestProperty("Sec-CH-UA-Platform", "\"macOS\"")
               connection.setRequestProperty(
