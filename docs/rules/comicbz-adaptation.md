@@ -52,6 +52,6 @@ https://image.comicbz.com/2/1032/92036/1_1132.jpg?cid=92036&key=...&type=1&uk=..
 
 ## 5. 已知限制
 
-- 规则 `urls` 是 `http://`，release 构建默认禁止明文；需要改 https 或在 debug 构建验证。
+- 规则 URL 已全部切到 `https://`，release 构建可直接使用（列表 API / 详情 / 章节页 https 均验证 200）。
 - 图片签名 URL 对 UA 不敏感（桌面/无 UA 都返回 200），但页面渲染必须用移动 UA。
 - 章节页图片数量依赖移动版 JS，桌面 UA 下 `#cp_img` 为空。

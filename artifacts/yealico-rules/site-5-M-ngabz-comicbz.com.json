@@ -11,10 +11,10 @@
     "extractedAt": "2026-10-20T10:58:41.286955+00:00"
   },
   "urls": {
-    "index": "http://{domain:}/",
-    "detail": "http://{domain:}/{idCode:}/",
+    "index": "https://{domain:}/",
+    "detail": "https://{domain:}/{idCode:}/",
     "gallery": "",
-    "search": "http://{domain:}/search?title={keyword:}&page={page:}"
+    "search": "https://{domain:}/search?title={keyword:}&page={page:}"
   },
   "loginUrl": "",
   "headers": {
@@ -273,7 +273,7 @@
     {
       "pk": 9,
       "name": "上架時間",
-      "listUrl": "http://{domain:}/manga-list/mangabz.ashx?action=getclasscomics&pageindex={page:}&pagesize=21&tagid=0&status=0&sort=18",
+      "listUrl": "https://{domain:}/manga-list/mangabz.ashx?action=getclasscomics&pageindex={page:}&pagesize=21&tagid=0&status=0&sort=18",
       "detailUrl": null,
       "galleryUrl": null,
       "displayMode": "default",
@@ -290,7 +290,7 @@
     {
       "pk": 10,
       "name": "人氣",
-      "listUrl": "http://{domain:}/manga-list/mangabz.ashx?action=getclasscomics&pageindex={page:}&pagesize=21&tagid=0&status=0&sort=10",
+      "listUrl": "https://{domain:}/manga-list/mangabz.ashx?action=getclasscomics&pageindex={page:}&pagesize=21&tagid=0&status=0&sort=10",
       "detailUrl": null,
       "galleryUrl": null,
       "displayMode": "default",
@@ -307,7 +307,7 @@
     {
       "pk": 11,
       "name": "首頁",
-      "listUrl": "http://{domain:}/",
+      "listUrl": "https://{domain:}/",
       "detailUrl": null,
       "galleryUrl": null,
       "displayMode": "default",
@@ -349,7 +349,7 @@
     {
       "pk": 68,
       "name": "分類",
-      "listUrl": "http://{domain:}/manga-list/mangabz.ashx?action=getclasscomics&pageindex={page:}&pagesize=21&{idCode:}&sort=2",
+      "listUrl": "https://{domain:}/manga-list/mangabz.ashx?action=getclasscomics&pageindex={page:}&pagesize=21&{idCode:}&sort=2",
       "detailUrl": null,
       "galleryUrl": null,
       "displayMode": "tag, default",
@@ -366,7 +366,7 @@
     {
       "pk": 69,
       "name": "更新時間",
-      "listUrl": "http://{domain:}/manga-list/mangabz.ashx?action=getclasscomics&pageindex={page:}&pagesize=21&tagid=0&status=0&sort=2",
+      "listUrl": "https://{domain:}/manga-list/mangabz.ashx?action=getclasscomics&pageindex={page:}&pagesize=21&tagid=0&status=0&sort=2",
       "detailUrl": null,
       "galleryUrl": null,
       "displayMode": "default",
@@ -383,7 +383,7 @@
     {
       "pk": 70,
       "name": "排行榜",
-      "listUrl": "http://{domain:}/manga-rank/",
+      "listUrl": "https://{domain:}/manga-rank/",
       "detailUrl": null,
       "galleryUrl": null,
       "displayMode": "default",

@@ -7,12 +7,13 @@ import {
   executeGallery,
   executeList,
   expandUrl,
+  loadGalleryPages,
   parseFunctionChain,
   queryJsonPath,
   resolveUrl,
   validateJsonPath,
 } from '../src/engine';
-import type { RuleDocument } from '../src/engine';
+import type { RuleDocument, RuleFetcher, RuleRequest } from '../src/engine';
 
 function fixture(...parts: string[]): string {
   return readFileSync(
@@ -285,5 +286,69 @@ describe('selector semantics', () => {
     expect(resolveUrl('/img/a-2-large.jpg', 'https://example.test/list/1')).toBe(
       'https://example.test/img/a-2-large.jpg',
     );
+  });
+
+  test('JSONPath item pointing at an array expands into multiple items', () => {
+    const rule: RuleDocument = {
+      name: 'JSON list',
+      domain: 'example.test',
+      indexRule: {
+        item: { selector: '$.Items' },
+        title: { selector: '$.Title' },
+      },
+    };
+    const result = executeList(
+      rule,
+      buildRoutePlan(rule),
+      JSON.stringify({ Items: [{ Title: 'A' }, { Title: 'B' }] }),
+      { baseUrl: 'https://example.test/', domain: 'example.test' },
+    );
+    expect(result.items.map(item => item.title)).toEqual(['A', 'B']);
+  });
+
+  test('$1|{source:} keeps $1 on match and falls back to source on miss', () => {
+    const spec = {
+      selector: 'span.title',
+      regex: '(.+?)\\s*[（(]\\d+P[）)]',
+      replacement: '$1|{source:}',
+    };
+    expect(applyRegex('第5話 試看 （19P）', spec)).toBe('第5話 試看');
+    expect(applyRegex('第4話 試看 (20P)', spec)).toBe('第4話 試看');
+    expect(applyRegex('特別篇', spec)).toBe('特別篇');
+  });
+
+  test('galleryRule.httpHeaders is merged into the gallery request', async () => {
+    const rule: RuleDocument = {
+      name: 'Gallery headers',
+      domain: 'example.test',
+      galleryRule: {
+        item: { selector: '#cp_img>img' },
+        image: { selector: 'this', function: 'attr', param: 'src' },
+        httpHeaders:
+          '{"User-Agent":"iPhone UA","Referer":"https://example.test/"}',
+      },
+    };
+    const requests: RuleRequest[] = [];
+    const fetcher: RuleFetcher = {
+      async fetch(request) {
+        requests.push(request);
+        return {
+          url: request.url,
+          status: 200,
+          body: '<div id="cp_img"><img src="/1.jpg"></div>',
+        };
+      },
+    };
+
+    await loadGalleryPages(
+      rule,
+      buildRoutePlan(rule),
+      fetcher,
+      'https://example.test/m1/',
+      { baseUrl: 'https://example.test/', domain: 'example.test' },
+    );
+
+    expect(requests[0]?.headers['User-Agent']).toBe('iPhone UA');
+    expect(requests[0]?.headers.Referer).toBe('https://example.test/');
   });
 });
