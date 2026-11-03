@@ -102,7 +102,33 @@ function requestFor(
 }
 
 function waitSelector(value: unknown): string | undefined {
-  return normalizeSelector(value)?.selector;
+  const selector = normalizeSelector(value)?.selector;
+  // WebView 的等待标记必须是 CSS 选择器；JSONPath（$...）无法给 querySelector。
+  if (!selector || selector.trim().startsWith('$')) {
+    return undefined;
+  }
+  return selector;
+}
+
+/** 解析规则里的 httpHeaders：支持 JSON 字符串或对象，只保留字符串值。 */
+function parseHttpHeaders(value: unknown): Record<string, string> | undefined {
+  if (typeof value === 'string') {
+    try {
+      return parseHttpHeaders(JSON.parse(value));
+    } catch {
+      return undefined;
+    }
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  const headers: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(value)) {
+    if (typeof raw === 'string') {
+      headers[key] = raw;
+    }
+  }
+  return Object.keys(headers).length > 0 ? headers : undefined;
 }
 
 async function fetchPage(
@@ -509,6 +535,13 @@ export async function loadGalleryPages(
     waitSelector(galleryRule?.item) ??
     waitSelector(galleryRule?.image) ??
     waitSelector(galleryRule?.totalPages);
+  // galleryRule.httpHeaders 是 Yealico 的图库页请求头（通常是移动 UA）。
+  // 它同时用于 WebView 渲染与图片请求，否则站点会返回空壳页面。
+  const galleryHeaders = parseHttpHeaders(galleryRule?.httpHeaders);
+  const withGalleryHeaders = (request: RuleRequest): RuleRequest =>
+    galleryHeaders
+      ? { ...request, headers: { ...request.headers, ...galleryHeaders } }
+      : request;
 
   const first = buildGalleryPageUrls(chapterUrlTemplate, undefined, context, 1);
   diagnostics.push(...first.diagnostics);
@@ -542,7 +575,7 @@ export async function loadGalleryPages(
     rule,
     plan,
     fetcher,
-    firstRequest.request,
+    withGalleryHeaders(firstRequest.request),
     { ...context, page: 1 },
     waitForGallery,
   );
@@ -590,7 +623,7 @@ export async function loadGalleryPages(
       rule,
       plan,
       fetcher,
-      request,
+      withGalleryHeaders(request),
       { ...context, page: index + 1 },
       waitForGallery,
     );

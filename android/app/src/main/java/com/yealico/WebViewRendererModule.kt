@@ -46,9 +46,10 @@ class WebViewRendererModule(
     url: String,
     waitForSelector: String?,
     timeoutMs: Double,
+    userAgent: String?,
     promise: Promise,
   ) {
-    start(promise, waitForSelector, timeoutMs) { webView ->
+    start(promise, waitForSelector, timeoutMs, userAgent) { webView ->
       webView.loadUrl(
         url,
         mapOf("Accept-Language" to "zh-CN,zh;q=0.9,en;q=0.8"),
@@ -64,7 +65,7 @@ class WebViewRendererModule(
     timeoutMs: Double,
     promise: Promise,
   ) {
-    start(promise, waitForSelector, timeoutMs) { webView ->
+    start(promise, waitForSelector, timeoutMs, null) { webView ->
       webView.loadDataWithBaseURL(baseUrl, html, "text/html", "UTF-8", null)
     }
   }
@@ -74,6 +75,7 @@ class WebViewRendererModule(
     promise: Promise,
     waitForSelector: String?,
     timeoutMs: Double,
+    userAgent: String?,
     load: (WebView) -> Unit,
   ) {
     val activity = reactContext.currentActivity
@@ -99,7 +101,8 @@ class WebViewRendererModule(
         settings.databaseEnabled = true
         settings.loadsImagesAutomatically = false
         settings.blockNetworkImage = true
-        settings.userAgentString = browserUserAgent
+        settings.userAgentString =
+          userAgent?.takeIf { it.isNotBlank() } ?: browserUserAgent
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
         webViewClient = object : WebViewClient() {
@@ -267,7 +270,11 @@ class WebViewRendererModule(
     }
 
     val script = if (waitForSelector.isNullOrBlank()) {
-      "document.documentElement ? document.documentElement.outerHTML : null"
+      // JSON API 会被 WebView 包成 <pre> 显示，outerHTML 不再是原始 JSON，
+      // 规则引擎无法按 JSONPath 解析；这时返回 body.innerText。
+      "(function(){try{var ct=(document.contentType||'').toLowerCase();" +
+        "if(ct.indexOf('json')>=0&&document.body){return document.body.innerText;}}" +
+        "catch(e){}return document.documentElement?document.documentElement.outerHTML:null;})()"
     } else {
       "(function(){return document.querySelector(${quoteJs(waitForSelector)}) ? document.documentElement.outerHTML : null;})()"
     }

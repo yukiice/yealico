@@ -7,6 +7,7 @@ interface NativeWebViewRenderer {
     url: string,
     waitForSelector: string | null,
     timeoutMs: number,
+    userAgent: string | null,
   ): Promise<{ url: string; body: string }>;
   renderHtml(
     html: string,
@@ -44,6 +45,7 @@ export function createNativeWebViewRenderer(): WebViewRendererLike {
         url,
         options.waitForSelector ?? null,
         options.timeoutMs ?? 15_000,
+        options.userAgent ?? null,
       );
     },
     renderHtml(html, baseUrl, options = {}) {

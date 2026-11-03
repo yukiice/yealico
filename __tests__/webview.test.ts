@@ -175,6 +175,18 @@ test('WebView fetcher raises the render timeout floor to 30s', async () => {
   expect(requestedTimeout).toBe(30_000);
 });
 
+test('WebView fetcher unwraps JSON documents rendered inside <pre>', async () => {
+  const fetcher = createWebViewRuleFetcher(
+    fakeRenderer('<html><body><pre>{"a":1}</pre></body></html>'),
+  );
+  const result = await fetcher.fetch({
+    url: 'https://example.test/api',
+    method: 'GET',
+    headers: {},
+  });
+  expect(result.body).toBe('{"a":1}');
+});
+
 test('WebView selftest applies the 漫画柜 chapter rule to rendered HTML', async () => {
   const renderer = fakeRenderer(`
     <div class="chapter-list">

@@ -212,7 +212,7 @@ const mangabz = loadSite('site-5-');
 );
 
 (mangabz ? test : test.skip)(
-  'extracted M-ngabz selector-less secondLevelPageUrl reads the page script',
+  'extracted M-ngabz no longer generates a second-level chapter image URL',
   () => {
     if (!mangabz) {
       return;
@@ -233,15 +233,12 @@ const mangabz = loadSite('site-5-');
       },
     );
 
-    expect(result.secondLevelUrl).toBe(
-      'https://comicbz.com/m456/chapterimage.ashx?cid=456&page=1&key=&_cid=456&_mid=123&_dt=dt&_sign=sig',
-    );
-    expect(result.diagnostics).toEqual(
+    // 站点已不再下发 MANGABZ_VIEWSIGN，旧的 chapterimage.ashx 规则失效，
+    // 现在依赖 WebView 渲染 #cp_img>img。
+    expect(result.secondLevelUrl).toBeUndefined();
+    expect(result.diagnostics).not.toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          fieldPath: 'galleryRule.secondLevelPageUrl',
-          code: 'SECOND_LEVEL_REQUIRED',
-        }),
+        expect.objectContaining({ code: 'SECOND_LEVEL_REQUIRED' }),
       ]),
     );
     expect(

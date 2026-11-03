@@ -7,7 +7,7 @@
     "version": "2.1@wc3818290",
     "author": "wc3818290",
     "displayMode": "default, collection, default, default",
-    "flags": "",
+    "flags": "jsNeededDetail",
     "extractedAt": "2026-10-20T10:58:41.286955+00:00"
   },
   "urls": {
@@ -60,7 +60,7 @@
       },
       "chapterRule": {
         "title": {
-          "regex": "(.+) （\\d+P）",
+          "regex": "(.+?)\\s*[（(]\\d+P[）)]",
           "selector": "this",
           "replacement": "$1|{source:}",
           "function": "text"
@@ -126,10 +126,6 @@
       "httpHeaders": "{\"User-Agent\": \"Mozilla/5.0 (iPhone; CPU iPhone OS 18_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1\"}",
       "item": {
         "selector": "#cp_img>img"
-      },
-      "secondLevelPageUrl": {
-        "regex": "MANGABZ_MID=(\\d+);.+MANGABZ_CID=(\\d+).+MANGABZ_VIEWSIGN=\"(.+?)\".+MANGABZ_VIEWSIGN_DT=\"(.+?)\"",
-        "replacement": "https://{domain:}/m$2/chapterimage.ashx?cid=$2&page=1&key=&_cid=$2&_mid=$1&_dt=$4&_sign=$3"
       }
     },
     "series": {

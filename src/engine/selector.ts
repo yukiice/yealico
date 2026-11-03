@@ -105,7 +105,13 @@ export function selectNodes(
       return [];
     }
     const path = normalizeJsonPath(trimmed);
-    return queryJsonPath(json, path);
+    const matches = queryJsonPath(json, path);
+    // Yealico 的 item 路径通常指向一个数组（如 $.UpdateComicItems），
+    // 选中数组本身时应展开成多个节点，而不是把数组当成唯一节点。
+    if (matches.length === 1 && Array.isArray(matches[0])) {
+      return matches[0];
+    }
+    return matches;
   }
   const nodes = selectAll(trimmed, context.root as AnyNode | AnyNode[]);
   return nodes as AnyNode[];
@@ -372,16 +378,23 @@ export function applyRegex(value: string, spec: SelectorSpec): string {
   }
   const match = regex.exec(value);
   const replacement = spec.replacement ?? '$1';
+  // Yealico 的 `$1|{source:}` 语义是“匹配成功取 $1，失败回退原值”，
+  // 匹配成功时 {source:} 不能拼接进结果，否则标题会重复原文本。
+  const hasSourceFallback = replacement.includes('{source:}');
   if (!match) {
-    return replacement.includes('{source:}') ? value : '';
+    return hasSourceFallback ? value : '';
   }
-  const arithmetic = applyArithmetic(replacement, match);
+  const effective = hasSourceFallback
+    ? replacement.replace(/\|?\{source:\}/g, '')
+    : replacement;
+  const arithmetic = applyArithmetic(effective, match);
   if (arithmetic !== undefined) {
     return arithmetic;
   }
-  return replacement
-    .replace(/\$([0-9]+)/g, (_, index: string) => match[Number(index)] ?? '')
-    .replace(/\|?\{source:\}/g, value);
+  return effective.replace(
+    /\$([0-9]+)/g,
+    (_, index: string) => match[Number(index)] ?? '',
+  );
 }
 
 function applyStringFunction(value: string, call: string, spec: SelectorSpec): string {

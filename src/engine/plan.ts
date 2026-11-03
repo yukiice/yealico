@@ -76,6 +76,7 @@ const GALLERY_FIELDS = new Set([
   'totalPages',
   'item',
   'image',
+  'httpHeaders',
   'videoRule',
 ]);
 
