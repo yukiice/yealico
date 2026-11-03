@@ -107,6 +107,24 @@ vivo 的 `PackageInstallerActivity` 对外部来源 APK 强制显示“安全守
 
 进入阅读器（第 5 章）时发现图库等待选择器是 `this`：`loadGallery` 取了 `galleryRule.image`（`selector: this`），页面永远不可能出现该元素。已改为优先取 `pageReadyMarker`、`item`、`image`、`totalPages`，本地检查通过；真机图库尚未复测。
 
+## 5.3 章节页图片：contentKey 同样按 UA-CH 分流
+
+章节页 HTML 里有内联：
+
+```js
+var cct = '0p0zzpvv.nmn.oop';
+var contentKey = '（1936 字符加密串）';
+```
+
+`comic_content_pass*.js` 用 `cct` 解密 `contentKey` 得到图片列表。
+
+- curl 桌面 UA：`contentKey` 1936 字符，Chrome 渲染出 3 张图。
+- WebView 落盘 DOM：`contentKey` 长度 0，只有广告图，`ul.comicContent-list` 为空。
+
+原因是章节页主文档也按 Client Hints 分流：移动 CH 的 HTML 不带 `contentKey`。已把 `shouldInterceptRequest` 扩展到章节主文档（`/comic/*/chapter/*`），用桌面 UA/CH 代发请求，Accept 按主文档/接口区分。
+
+真机复测受站点限流影响：详情页在恢复窗口内能出 11–16 章，但短时间多次访问会再次超时；章节主文档拦截尚未在真机验证。
+
 ## 6. 规则更新机制修复
 
 `SiteWorkspace` 之前直接用 `site.rule`（导入时的规则快照）；替换存储里的 `raw` 后，`plan` 仍是旧的（例如 `webview=0`）。现在改为用 `site.raw` 重新解析：

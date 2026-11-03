@@ -107,11 +107,18 @@ class WebViewRendererModule(
             view: WebView,
             request: WebResourceRequest,
           ): WebResourceResponse? {
-            // mangacopy 的章节接口按 Client Hints 返回不同数据：桌面 CH 是完整
-            // 加密章节串，移动 CH 是受限数据。Android WebView 无法修改 UA-CH，
-            // 所以对这个接口用桌面请求头代发，再把响应交给页面 JS 解密。
+            // mangacopy 的章节接口和章节主文档都按 Client Hints 分流：桌面 CH 的
+            // HTML 带 contentKey（加密图片数据），移动 CH 的 HTML 不带，页面因此
+            // 渲染不出图片。Android WebView 改不了 UA-CH，所以对这两类请求用
+            // 桌面请求头代发，再把响应交给页面 JS 解密。
             val target = request.url.toString()
-            if (!target.contains("/comicdetail/") || !target.contains("/chapters")) {
+            val isChapterPage =
+              request.isForMainFrame &&
+                target.contains("/comic/") &&
+                target.contains("/chapter/")
+            val isChaptersApi =
+              target.contains("/comicdetail/") && target.contains("/chapters")
+            if (!isChapterPage && !isChaptersApi) {
               return null
             }
             return try {
@@ -120,7 +127,14 @@ class WebViewRendererModule(
               connection.readTimeout = 15_000
               connection.instanceFollowRedirects = true
               connection.setRequestProperty("User-Agent", browserUserAgent)
-              connection.setRequestProperty("Accept", "application/json, text/plain, */*")
+              connection.setRequestProperty(
+                "Accept",
+                if (isChapterPage) {
+                  "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                } else {
+                  "application/json, text/plain, */*"
+                },
+              )
               connection.setRequestProperty("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
               // WebResourceResponse 不会解压 gzip，显式要未压缩响应。
               connection.setRequestProperty("Accept-Encoding", "identity")
@@ -144,7 +158,9 @@ class WebViewRendererModule(
                 connection.disconnect()
                 return null
               }
-              val mime = connection.contentType?.substringBefore(';') ?: "application/json"
+              val mime =
+                connection.contentType?.substringBefore(';')
+                  ?: if (isChapterPage) "text/html" else "application/json"
               WebResourceResponse(mime, "utf-8", connection.inputStream)
             } catch (error: Exception) {
               null
