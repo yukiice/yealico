@@ -118,6 +118,63 @@ test('loadGalleryPages allows NEEDS_WEBVIEW and waits for the image marker', asy
   expect(result.diagnostics).toEqual([]);
 });
 
+test('loadGalleryPages prefers galleryRule.item over image as the wait marker', async () => {
+  const rule: RuleDocument = {
+    name: 'WebView Gallery Item',
+    domain: 'example.test',
+    flags: { jsNeededDetail: true },
+    galleryRule: {
+      item: { selector: 'ul.pages > li > img' },
+      image: { selector: 'this', function: 'attr', param: 'src' },
+    },
+  };
+  const plan = buildRoutePlan(rule);
+  let requestedWait: string | undefined;
+  const fetcher = createWebViewRuleFetcher(
+    fakeRenderer(
+      '<ul class="pages"><li><img src="/img/1.jpg"></li></ul>',
+      (_url, wait) => {
+        requestedWait = wait;
+      },
+    ),
+  );
+
+  const result = await loadGalleryPages(
+    rule,
+    plan,
+    fetcher,
+    'https://example.test/gallery/1',
+    { baseUrl: 'https://example.test/', domain: 'example.test' },
+  );
+
+  // image 的 selector 是 this，页面里不存在；等待标记必须优先取 item。
+  expect(requestedWait).toBe('ul.pages > li > img');
+  expect(result.images).toEqual(['https://example.test/img/1.jpg']);
+});
+
+test('WebView fetcher raises the render timeout floor to 30s', async () => {
+  let requestedTimeout: number | undefined;
+  const renderer: WebViewRendererLike = {
+    async render(url, options) {
+      requestedTimeout = options?.timeoutMs;
+      return { url, body: '<div></div>' };
+    },
+    async renderHtml(_html, baseUrl) {
+      return { url: baseUrl, body: '' };
+    },
+  };
+  const fetcher = createWebViewRuleFetcher(renderer);
+
+  await fetcher.fetch({
+    url: 'https://example.test/detail',
+    method: 'GET',
+    headers: {},
+    timeoutMs: 5_000,
+  });
+
+  expect(requestedTimeout).toBe(30_000);
+});
+
 test('WebView selftest applies the 漫画柜 chapter rule to rendered HTML', async () => {
   const renderer = fakeRenderer(`
     <div class="chapter-list">

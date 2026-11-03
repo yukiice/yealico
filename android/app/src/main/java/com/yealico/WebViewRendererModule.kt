@@ -1,6 +1,7 @@
 package com.yealico
 
 import android.annotation.SuppressLint
+import android.content.pm.ApplicationInfo
 import android.os.Handler
 import android.os.Looper
 import android.view.ViewGroup
@@ -225,13 +226,18 @@ class WebViewRendererModule(
           "(function(){try{return document.documentElement.outerHTML;}catch(e){return '';}})()",
         ) { htmlRaw ->
           val debugHtml = decodeJavascriptString(htmlRaw)
-          try {
-            java.io.File(
-              reactApplicationContext.filesDir,
-              "yelico-last-render.html",
-            ).writeText(debugHtml)
-          } catch (error: Exception) {
-            // 调试落盘失败不影响主流程。
+          val debuggable =
+            (reactApplicationContext.applicationInfo.flags and
+              ApplicationInfo.FLAG_DEBUGGABLE) != 0
+          if (debuggable) {
+            try {
+              java.io.File(
+                reactApplicationContext.filesDir,
+                "yelico-last-render.html",
+              ).writeText(debugHtml)
+            } catch (error: Exception) {
+              // 调试落盘失败不影响主流程。
+            }
           }
           fail(
             promise,
