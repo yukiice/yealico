@@ -26,6 +26,10 @@ import type { ReadingProgressRepository } from './readingProgress';
 import { ReaderScreen } from './ReaderScreen';
 import { createRuleFetcherForPlan } from './ruleFetcherForPlan';
 
+/** 详情页短时缓存：mangacopy 等站点对频率敏感，重复进入同一作品不重复请求。 */
+const DETAIL_CACHE_TTL = 10 * 60 * 1000;
+const detailCache = new Map<string, { at: number; result: DetailResult }>();
+
 export function detailUrlFor(
   rule: RuleDocument,
   item: ExtractItem,
@@ -125,6 +129,20 @@ export function DetailScreen({
       };
     }
 
+    const cacheKey = `${siteId}:${item.idCode ?? detailUrl}`;
+    const cached = detailCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < DETAIL_CACHE_TTL) {
+      setDetail(cached.result);
+      const message = errorText(cached.result.diagnostics);
+      if (message) {
+        setError(message);
+      }
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     loadDetail(rule, plan, fetcher, detailUrl, {
       baseUrl: detailUrl,
       domain,
@@ -133,6 +151,7 @@ export function DetailScreen({
         if (cancelled) {
           return;
         }
+        detailCache.set(cacheKey, { at: Date.now(), result });
         setDetail(result);
         debug.record({
           stage: 'detail',
@@ -164,7 +183,7 @@ export function DetailScreen({
     return () => {
       cancelled = true;
     };
-  }, [debug, detailUrl, domain, fetcher, item, plan, rule]);
+  }, [debug, detailUrl, domain, fetcher, item, plan, rule, siteId]);
 
   const chapters = detail?.chapters ?? [];
   const activeChapter =
