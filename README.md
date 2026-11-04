@@ -86,6 +86,8 @@ docs/architecture/       阶段基线与运行时记录
 - [Yealico 导出 JSON 格式](docs/rules/yealico-export-format.md)
 - [用 Yealico 客户端取规则明文](docs/rules/yealico-rule-extraction.md)
 - [兼容矩阵](docs/rules/compat-matrix.md)
+- [Android 构建与交付](docs/release/README.md)
+- [Release 签名配置](docs/release/signing.md)
 - [P1 基线与验证记录](docs/architecture/p1-baseline.md)
 - [P2 Detail/Gallery 链路](docs/architecture/p2-detail-gallery.md)
 - [P3 章节图库阅读器](docs/architecture/p3-reader.md)
