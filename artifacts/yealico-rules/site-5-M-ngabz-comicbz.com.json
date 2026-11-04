@@ -40,7 +40,9 @@
         "selector": "$.Author[0]"
       },
       "cover": {
-        "selector": "$.ShowPicUrlB"
+        "selector": "$.ShowPicUrlB",
+        "regex": "^http://(.+)$",
+        "replacement": "https://$1|{source:}"
       },
       "idCode": {
         "selector": "$.UrlKey"
@@ -104,7 +106,9 @@
       "cover": {
         "param": "src",
         "function": "attr",
-        "selector": ".detail-info img"
+        "selector": ".detail-info img",
+        "regex": "^http://(.+)$",
+        "replacement": "https://$1|{source:}"
       },
       "rating": {
         "selector": "p.detail-info-stars span",
@@ -155,7 +159,9 @@
       "cover": {
         "param": "src",
         "function": "attr",
-        "selector": "img"
+        "selector": "img",
+        "regex": "^http://(.+)$",
+        "replacement": "https://$1|{source:}"
       },
       "idCode": {
         "selector": "a",

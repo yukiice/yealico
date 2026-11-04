@@ -48,9 +48,17 @@ https://image.comicbz.com/2/1032/92036/1_1132.jpg?cid=92036&key=...&type=1&uk=..
 
 - 列表：“更新時間”页签显示 10+ 部作品（丝与铠、邻家天使…、宵待步行等），`idCode` 正常。
 - 详情：标题、作者、简介、封面、章节 (5) 正常。
-- 阅读器：第 4 話显示 `1 / 20 图`，图片正常加载。
+- 阅读器：第 4 話显示 `1 / 26 图`，图片正常加载。
+- release 包（debug keystore 签名）下列表、详情、封面、阅读器同样正常，不依赖 Metro。
 
-## 5. 已知限制
+## 5. release 适配
+
+release 构建默认禁止明文，除了把规则 URL 切到 https，还处理了封面：
+
+- 列表/详情/搜索的 `cover` 规则加 `regex: ^http://(.+)$`、`replacement: https://$1|{source:}`，把 `http://cover.comicbz.com/...` 升级为 https（不匹配时回退原值）。
+- 章节图片本身就是 `https://image.comicbz.com/...`，无需转换。
+
+## 6. 已知限制
 
 - 规则 URL 已全部切到 `https://`，release 构建可直接使用（列表 API / 详情 / 章节页 https 均验证 200）。
 - 图片签名 URL 对 UA 不敏感（桌面/无 UA 都返回 200），但页面渲染必须用移动 UA。
