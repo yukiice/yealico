@@ -91,7 +91,7 @@ docs/architecture/       阶段基线与运行时记录
 - [P1 基线与验证记录](docs/architecture/p1-baseline.md)
 - [P2 Detail/Gallery 链路](docs/architecture/p2-detail-gallery.md)
 - [P3 章节图库阅读器](docs/architecture/p3-reader.md)
-- [P3 调试页](docs/architecture/p3-debug.md)
+- [P3 调试记录（调试页已移除）](docs/architecture/p3-debug.md)
 - [P3 Android 验收记录](docs/architecture/p3-android-verification.md)
 - [P4 站点内搜索](docs/architecture/p4-search.md)
 - [P5 首页与详情页 UI 改版](docs/architecture/p5-home-detail-ui.md)

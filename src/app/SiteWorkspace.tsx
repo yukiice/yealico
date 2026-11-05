@@ -20,7 +20,6 @@ import {
 import type { ExtractItem, RuleDocument } from '../engine';
 import type { StoredSite } from './ruleImport';
 import { importRuleText } from './ruleImport';
-import { DebugScreen } from './DebugScreen';
 import { DebugSession } from './debugReport';
 import { DetailScreen } from './DetailScreen';
 import { errorText } from './diagnostics';
@@ -69,7 +68,6 @@ export function SiteWorkspace({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedItem, setSelectedItem] = useState<ExtractItem | null>(null);
-  const [debugOpen, setDebugOpen] = useState(false);
   const [tab, setTab] = useState<BottomTab>('discover');
   const debug = useRef(new DebugSession()).current;
 
@@ -153,17 +151,6 @@ export function SiteWorkspace({
     };
   }, [built, debug, fetcher, page, pages.length, searchKeyword, site.domain]);
 
-  if (debugOpen) {
-    return (
-      <DebugScreen
-        site={site}
-        plan={built.plan}
-        debug={debug}
-        onBack={() => setDebugOpen(false)}
-      />
-    );
-  }
-
   if (selectedItem) {
     return (
       <DetailScreen
@@ -222,11 +209,6 @@ export function SiteWorkspace({
             <Pressable onPress={onBack} style={styles.meButton}>
               <Text style={styles.meButtonText}>站点管理</Text>
             </Pressable>
-            <Pressable
-              onPress={() => setDebugOpen(true)}
-              style={styles.meButtonGhost}>
-              <Text style={styles.meButtonGhostText}>调试</Text>
-            </Pressable>
           </View>
         ) : null}
         <BottomNav
@@ -243,9 +225,6 @@ export function SiteWorkspace({
     <View style={styles.root}>
       <View style={styles.headerRow}>
         <Text style={styles.siteName}>{site.name}</Text>
-        <Pressable onPress={() => setDebugOpen(true)} hitSlop={8}>
-          <Text style={styles.debugText}>调试</Text>
-        </Pressable>
       </View>
 
       <View style={styles.searchBox}>
