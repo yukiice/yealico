@@ -488,17 +488,8 @@ export function buildRoutePlan(rule: RuleDocument): RoutePlan {
   scanUrl(rule.searchUrl, 'searchUrl', diagnostics);
   scanUrl(rule.loginUrl, 'loginUrl', diagnostics);
 
-  // search / series 是 v1 未实现的可选能力，不影响列表、详情、图库主链路。
+  // series 仍是 v1 未实现的可选能力，不影响列表、详情、图库、搜索主链路。
   // 标成 warning 后不会进入 UI 的错误横幅，避免把"能用的站点"显示成失败。
-  if (rule.searchUrl) {
-    push(
-      diagnostics,
-      'searchUrl',
-      'UNSUPPORTED_FEATURE',
-      'search is not implemented in v1',
-      'warning',
-    );
-  }
   if (rule.seriesRule) {
     push(
       diagnostics,

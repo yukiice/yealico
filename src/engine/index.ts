@@ -25,7 +25,7 @@ export {
 } from './execute';
 export type { ChapterItem, DetailResult, PageUrlResult } from './types';
 export { parseJsonPath, queryJsonPath, validateJsonPath } from './jsonpath';
-export { loadDetail, loadGalleryPages, loadListPages } from './load';
+export { loadDetail, loadGalleryPages, loadListPages, loadSearch } from './load';
 export type {
   LoadOptions,
   LoadStopReason,

@@ -2,7 +2,7 @@
 
 面向 Android 的规则驱动图片 / 漫画阅读器，目标是在声明支持的功能范围内运行用户已有的 Yealico 站点规则，而不是要求用户重写扩展。
 
-当前处于 **P2 引擎完成、P3 站点导入/管理/列表/详情/阅读已跑通**：Android 公开站点 List/Detail、漫画柜在线 Detail/Gallery、WebView、站点导入 UI、本地持久化、页面/列表、详情展示、连续滚动阅读器、章节连读和阅读进度恢复已跑通；登录/Cookie 尚未完成，不承诺全部规则兼容。
+当前处于 **P2 引擎完成、P3 站点导入/管理/列表/详情/阅读已跑通、P4 站内搜索已接入**：Android 公开站点 List/Detail、漫画柜在线 Detail/Gallery、WebView、站点导入 UI、本地持久化、页面/列表、详情展示、连续滚动阅读器、章节连读、阅读进度恢复和站内搜索（`searchUrl` + `searchRule`）已跑通；登录/Cookie 尚未完成，不承诺全部规则兼容。
 
 站点导入（JSON/URL、去重、删除）已完成；二维码导入已移除——Yealico `v2:` 是 CloudKit 引用，密钥不在客户端，无法离线解码。规则明文需从客户端 Edit 或 macOS 容器 SQLite 取得，见 [QR 研究结论](docs/rules/qr-import.md)。
 
@@ -93,10 +93,11 @@ docs/architecture/       阶段基线与运行时记录
 - [P3 章节图库阅读器](docs/architecture/p3-reader.md)
 - [P3 调试页](docs/architecture/p3-debug.md)
 - [P3 Android 验收记录](docs/architecture/p3-android-verification.md)
+- [P4 站点内搜索](docs/architecture/p4-search.md)
 
 ## 已知限制
 
-- UI：站点导入/列表/删除、页面选择、列表、详情展示、连续滚动与双页阅读（含右到左）、章节连读、阅读进度和调试页已实现。
+- UI：站点导入/列表/删除、页面选择、列表、详情展示、连续滚动与双页阅读（含右到左）、章节连读、阅读进度、站内搜索和调试页已实现。
 - WebView 已能渲染并取 DOM，阅读器已接入单章节画廊；登录、consent、Cookie 共享尚未实现，图片请求只补了规则头与默认 Referer。
 - Android 验证了阿巴基猫公开 List/Detail、漫画柜 WebView 列表/详情/章节；导入→列表→详情→章节→连续滚动→章节连读→进度落盘→冷重启恢复→调试页已在模拟器跑通，详见验收记录。
 - 二维码导入已移除（2026-10-22）：Yealico `v2:` 是 CloudKit 引用，离线不可解码；相机扫码、QR 解析层与原生依赖均已删除，导入只保留粘贴 JSON 与规则 URL。研究结论与取明文路径见 [QR 研究结论](docs/rules/qr-import.md)。

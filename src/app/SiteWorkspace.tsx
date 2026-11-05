@@ -4,6 +4,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -12,6 +13,7 @@ import {
   buildRoutePlan,
   listRulePages,
   loadListPages,
+  loadSearch,
 } from '../engine';
 import type { ExtractItem, RuleDocument } from '../engine';
 import type { StoredSite } from './ruleImport';
@@ -56,6 +58,8 @@ export function SiteWorkspace({
   const [page, setPage] = useState<number | undefined>(() =>
     defaultPageFor(rule),
   );
+  const [searchInput, setSearchInput] = useState('');
+  const [searchKeyword, setSearchKeyword] = useState('');
   const [items, setItems] = useState<ExtractItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -89,7 +93,13 @@ export function SiteWorkspace({
       baseUrl: `https://${site.domain}/`,
       domain: site.domain,
     };
-    loadListPages(built.rule, built.plan, fetcher, context, { maxPages: 1 })
+    const keyword = searchKeyword.trim();
+    const pending = keyword
+      ? loadSearch(built.rule, built.plan, fetcher, keyword, context, {
+          maxPages: 1,
+        })
+      : loadListPages(built.rule, built.plan, fetcher, context, { maxPages: 1 });
+    pending
       .then(result => {
         if (cancelled) {
           return;
@@ -108,7 +118,11 @@ export function SiteWorkspace({
         );
         debug.record({
           stage: 'list',
-          label: pages.length > 0 ? `页面 ${(page ?? 0) + 1}` : undefined,
+          label: keyword
+            ? `搜索：${keyword}`
+            : pages.length > 0
+              ? `页面 ${(page ?? 0) + 1}`
+              : undefined,
           counts: { items: result.items.length, pages: result.pages },
           diagnostics,
           urls: result.urls,
@@ -128,7 +142,7 @@ export function SiteWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [built, debug, fetcher, page, pages.length, site.domain]);
+  }, [built, debug, fetcher, page, pages.length, searchKeyword, site.domain]);
 
   if (debugOpen) {
     return (
@@ -207,13 +221,36 @@ export function SiteWorkspace({
         </ScrollView>
       )}
 
+      <View style={styles.searchRow}>
+        <TextInput
+          testID="site-search-input"
+          value={searchInput}
+          onChangeText={setSearchInput}
+          placeholder="搜索作品，留空恢复列表"
+          placeholderTextColor="#64748b"
+          style={styles.searchInput}
+          returnKeyType="search"
+          onSubmitEditing={() => setSearchKeyword(searchInput)}
+        />
+        <Pressable
+          testID="site-search-submit"
+          onPress={() => setSearchKeyword(searchInput)}
+          style={styles.searchButton}>
+          <Text style={styles.searchButtonText}>搜索</Text>
+        </Pressable>
+      </View>
+
       {loading ? (
-        <Text style={styles.info}>正在加载列表…</Text>
+        <Text style={styles.info}>
+          {searchKeyword.trim() ? '正在搜索…' : '正在加载列表…'}
+        </Text>
       ) : (
         <>
           {error ? <Text style={styles.error}>{error}</Text> : null}
           {listState === 'empty' ? (
-            <Text style={styles.info}>列表为空</Text>
+            <Text style={styles.info}>
+              {searchKeyword.trim() ? '没有匹配的作品' : '列表为空'}
+            </Text>
           ) : null}
           {listState === 'content' ? (
             <ScrollView contentContainerStyle={styles.list}>
@@ -255,6 +292,33 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     fontSize: 20,
     fontWeight: '700',
+  },
+  searchRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#e2e8f0',
+    backgroundColor: '#111827',
+    borderColor: '#334155',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 13,
+  },
+  searchButton: {
+    backgroundColor: '#1d4ed8',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+  },
+  searchButtonText: {
+    color: '#eff6ff',
+    fontSize: 13,
+    fontWeight: '600',
   },
   headerRow: {
     flexDirection: 'row',

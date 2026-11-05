@@ -113,7 +113,7 @@ describe('P1 golden fixtures', () => {
     );
   });
 
-  test('search/series are warnings, not blocking errors', () => {
+  test('series is a warning, not a blocking error', () => {
     const rule = {
       name: 'optional-capabilities',
       domain: 'example.test',
@@ -130,10 +130,7 @@ describe('P1 golden fixtures', () => {
         item.code === 'UNSUPPORTED_SERIES',
     );
 
-    expect(optional.map(item => item.fieldPath).sort()).toEqual([
-      'searchUrl',
-      'seriesRule',
-    ]);
+    expect(optional.map(item => item.fieldPath)).toEqual(['seriesRule']);
     expect(optional.every(item => item.severity === 'warning')).toBe(true);
   });
 

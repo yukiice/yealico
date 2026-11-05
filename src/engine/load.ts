@@ -344,6 +344,109 @@ export async function loadListPages(
 }
 
 /**
+ * 搜索：用 `searchUrl` 展开关键词，解析 `searchRule`（缺省回退 `indexRule`）。
+ *
+ * 默认只取第一页，避免搜索触发过多请求；调用方可传 maxPages 覆盖。
+ */
+export async function loadSearch(
+  rule: RuleDocument,
+  plan: RoutePlan,
+  fetcher: RuleFetcher,
+  keyword: string,
+  context: PageContext,
+  options: LoadOptions = {},
+): Promise<LoadedListResult> {
+  const trimmed = keyword.trim();
+  if (!rule.searchUrl) {
+    return {
+      items: [],
+      diagnostics: [
+        {
+          fieldPath: 'searchUrl',
+          code: 'MISSING_FIELD',
+          detail: 'searchUrl is required for search',
+          severity: 'error',
+        },
+      ],
+      pages: 0,
+      urls: [],
+      stopReason: 'error',
+    };
+  }
+  if (!trimmed) {
+    return { items: [], diagnostics: [], pages: 0, urls: [], stopReason: 'complete' };
+  }
+
+  const maxPages = options.maxPages ?? 1;
+  const searchContext: PageContext = { ...context, keyword: trimmed };
+  const pagePlan = buildPageUrls(rule.searchUrl, searchContext, maxPages);
+  const diagnostics: Diagnostic[] = [...pagePlan.diagnostics];
+  const urls: string[] = [];
+  const items: ExtractItem[] = [];
+  const seen = new Set<string>();
+  let pages = 0;
+  let stopReason: LoadStopReason = pagePlan.stopReason ?? 'complete';
+  const searchRule: RuleDocument = {
+    ...rule,
+    indexRule: (rule.searchRule ?? rule.indexRule) as RuleDocument['indexRule'],
+  };
+
+  for (let index = 0; index < pagePlan.urls.length; index += 1) {
+    const pageUrl = pagePlan.urls[index];
+    const { request, diagnostics: requestDiagnostics } = requestFor(
+      pageUrl,
+      { ...searchContext, page: index + 1 },
+      rule,
+    );
+    diagnostics.push(...requestDiagnostics);
+    if (!request.url) {
+      stopReason = 'empty';
+      break;
+    }
+
+    const fetched = await fetchPage(fetcher, request);
+    diagnostics.push(...fetched.diagnostics);
+    if (!fetched.response) {
+      stopReason = 'error';
+      break;
+    }
+    urls.push(request.url);
+
+    const pageContext: PageContext = {
+      ...searchContext,
+      page: index + 1,
+      baseUrl: fetched.response.url || request.url,
+    };
+    const result = executeList(
+      searchRule,
+      plan,
+      fetched.response.body,
+      pageContext,
+      { allowWebView: fetcher.webview === true },
+    );
+    diagnostics.push(...result.diagnostics);
+    pages += 1;
+
+    let newItems = 0;
+    for (const item of result.items) {
+      const key = listKey(item, items.length);
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      items.push(item);
+      newItems += 1;
+    }
+    if (newItems === 0) {
+      stopReason = 'noNewItems';
+      break;
+    }
+  }
+
+  return { items, diagnostics, pages, urls, stopReason };
+}
+
+/**
  * 详情页加载：详情 -> photoAlbumLink 二级页 -> pictureRule.link 图片页。
  *
  * 网络请求仍由注入的 fetcher 完成；本函数只负责顺序、去重和错误聚合。

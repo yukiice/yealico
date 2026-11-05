@@ -32,11 +32,7 @@
       "code": "UNKNOWN_FIELD",
       "detail": "unknownOption"
     },
-    {
-      "fieldPath": "searchUrl",
-      "code": "UNSUPPORTED_FEATURE",
-      "detail": "search is not implemented in v1"
-    },
+
     {
       "fieldPath": "searchUrl.unknown",
       "code": "UNKNOWN_PLACEHOLDER",
