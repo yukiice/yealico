@@ -25,6 +25,9 @@ import { progressKeyFor } from './readingProgress';
 import type { ReadingProgressRepository } from './readingProgress';
 import { ReaderScreen } from './ReaderScreen';
 import { createRuleFetcherForPlan } from './ruleFetcherForPlan';
+import { BottomNav } from './BottomNav';
+import type { BottomTab } from './BottomNav';
+import { lightTheme as theme } from './theme';
 
 /** 详情页短时缓存：mangacopy 等站点对频率敏感，重复进入同一作品不重复请求。 */
 const DETAIL_CACHE_TTL = 10 * 60 * 1000;
@@ -85,6 +88,13 @@ export function filterChapters(
   return matched;
 }
 
+function asText(value: string | number | undefined): string | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+  return String(value);
+}
+
 export function DetailScreen({
   siteName,
   siteId,
@@ -95,6 +105,7 @@ export function DetailScreen({
   progress,
   debug,
   onBack,
+  onNavigate,
 }: {
   siteName: string;
   siteId: string;
@@ -105,6 +116,7 @@ export function DetailScreen({
   progress: ReadingProgressRepository;
   debug: DebugSession;
   onBack: () => void;
+  onNavigate?: (tab: BottomTab) => void;
 }): React.JSX.Element {
   const fetcher = useMemo(() => createRuleFetcherForPlan(plan), [plan]);
   const [detail, setDetail] = useState<DetailResult | null>(null);
@@ -113,6 +125,8 @@ export function DetailScreen({
   const [chapterIndex, setChapterIndex] = useState<number | null>(null);
   const [showChapterPicker, setShowChapterPicker] = useState(false);
   const [chapterQuery, setChapterQuery] = useState('');
+  const [tab, setTab] = useState<'chapters' | 'browse'>('browse');
+  const [reloadToken, setReloadToken] = useState(0);
   const detailUrl = detailUrlFor(rule, item, domain);
 
   useEffect(() => {
@@ -131,7 +145,7 @@ export function DetailScreen({
 
     const cacheKey = `${siteId}:${item.idCode ?? detailUrl}`;
     const cached = detailCache.get(cacheKey);
-    if (cached && Date.now() - cached.at < DETAIL_CACHE_TTL) {
+    if (reloadToken === 0 && cached && Date.now() - cached.at < DETAIL_CACHE_TTL) {
       setDetail(cached.result);
       const message = errorText(cached.result.diagnostics);
       if (message) {
@@ -183,7 +197,17 @@ export function DetailScreen({
     return () => {
       cancelled = true;
     };
-  }, [debug, detailUrl, domain, fetcher, item, plan, rule, siteId]);
+  }, [
+    debug,
+    detailUrl,
+    domain,
+    fetcher,
+    item,
+    plan,
+    reloadToken,
+    rule,
+    siteId,
+  ]);
 
   const chapters = detail?.chapters ?? [];
   const activeChapter =
@@ -244,13 +268,13 @@ export function DetailScreen({
           style={styles.backButton}>
           <Text style={styles.backText}>← 返回详情</Text>
         </Pressable>
-        <Text style={styles.title}>章节 ({chapters.length})</Text>
+        <Text style={styles.pickerTitle}>章节 ({chapters.length})</Text>
         <TextInput
           testID="chapter-filter"
           value={chapterQuery}
           onChangeText={setChapterQuery}
           placeholder="搜索章节标题"
-          placeholderTextColor="#64748b"
+          placeholderTextColor={theme.textMuted}
           style={styles.search}
         />
         <Text style={styles.meta}>匹配 {matched.length} 章</Text>
@@ -270,80 +294,138 @@ export function DetailScreen({
     );
   }
 
-  const title = detail?.fields.title ?? item.title ?? siteName;
-  const cover = detail?.fields.cover ?? item.cover;
-  const pictures = detail?.pictures ?? [];
+  const title = asText(detail?.fields.title) ?? item.title ?? siteName;
+  const cover = asText(detail?.fields.cover) ?? item.cover;
+  const author = asText(detail?.fields.author);
+  const desc = asText(detail?.fields.desc) ?? asText(detail?.fields.description);
+  const tag = asText(detail?.fields.tag) ?? asText(detail?.fields.tags);
   const detailState = contentState(detail ? 1 : 0, error);
+
+  const refresh = (): void => {
+    const cacheKey = `${siteId}:${item.idCode ?? detailUrl ?? ''}`;
+    detailCache.delete(cacheKey);
+    setReloadToken(token => token + 1);
+  };
 
   return (
     <View style={styles.root}>
-      <Pressable onPress={onBack} style={styles.backButton}>
-        <Text style={styles.backText}>← 返回列表</Text>
-      </Pressable>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.meta}>{domain}</Text>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.coverWrap}>
+          {cover ? (
+            <Image
+              source={{ uri: cover }}
+              style={styles.cover}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[styles.cover, styles.coverEmpty]} />
+          )}
+          <View style={styles.topBar}>
+            <Pressable onPress={onBack} style={styles.circleButton} hitSlop={6}>
+              <Text style={styles.circleText}>‹</Text>
+            </Pressable>
+            <Pressable onPress={refresh} style={styles.circleButton} hitSlop={6}>
+              <Text style={styles.circleText}>↻</Text>
+            </Pressable>
+          </View>
+        </View>
 
-      {loading ? (
-        <Text style={styles.info}>正在加载详情…</Text>
-      ) : (
-        <>
+        <View style={styles.body}>
+          <Text style={styles.title}>{title}</Text>
+          {author ? <Text style={styles.author}>作者：{author}</Text> : null}
+
+          <View style={styles.pills}>
+            <Pressable
+              testID="detail-tab-chapters"
+              onPress={() => setTab('chapters')}
+              style={[
+                styles.pill,
+                tab === 'chapters' && styles.pillActive,
+              ]}>
+              <Text
+                style={[
+                  styles.pillText,
+                  tab === 'chapters' && styles.pillTextActive,
+                ]}>
+                章节
+              </Text>
+            </Pressable>
+            <Pressable
+              testID="detail-tab-browse"
+              onPress={() => setTab('browse')}
+              style={[styles.pill, tab === 'browse' && styles.pillActive]}>
+              <Text
+                style={[
+                  styles.pillText,
+                  tab === 'browse' && styles.pillTextActive,
+                ]}>
+                浏览
+              </Text>
+            </Pressable>
+          </View>
+
+          {loading ? <Text style={styles.info}>正在加载详情…</Text> : null}
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          {detailState === 'empty' ? (
+          {!loading && detailState === 'empty' ? (
             <Text style={styles.info}>详情为空</Text>
           ) : null}
-          {detailState === 'content' ? (
-            <ScrollView contentContainerStyle={styles.content}>
-          {cover ? (
-            <Image source={{ uri: cover }} style={styles.cover} resizeMode="cover" />
-          ) : null}
-          {detail?.fields.author ? (
-            <Text style={styles.meta}>作者：{detail.fields.author}</Text>
-          ) : null}
-          {detail?.fields.desc ? (
-            <Text style={styles.desc}>{detail.fields.desc}</Text>
-          ) : null}
 
-          {chapters.length > 0 && (
+          {tab === 'browse' ? (
+            <View>
+              {desc ? (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>简介</Text>
+                  <Text style={styles.desc}>{desc}</Text>
+                </View>
+              ) : null}
+              {tag ? (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>标签</Text>
+                  <View style={styles.tagWrap}>
+                    <Text style={styles.tag}>{tag}</Text>
+                  </View>
+                </View>
+              ) : null}
+              {!desc && !tag && !loading ? (
+                <Text style={styles.info}>暂无简介</Text>
+              ) : null}
+            </View>
+          ) : (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>章节 ({chapters.length})</Text>
-              {chapters.slice(0, 30).map(chapterRow)}
-              {chapters.length > 30 ? (
-                <Pressable
-                  testID="chapter-picker-open"
-                  onPress={() => setShowChapterPicker(true)}
-                  style={styles.moreButton}>
-                  <Text style={styles.moreText}>
-                    查看全部 {chapters.length} 章
+              {chapters.length > 0 ? (
+                <>
+                  <Text style={styles.sectionTitle}>
+                    章节 ({chapters.length})
                   </Text>
-                </Pressable>
-              ) : null}
+                  {chapters.slice(0, 30).map(chapterRow)}
+                  {chapters.length > 30 ? (
+                    <Pressable
+                      testID="chapter-picker-open"
+                      onPress={() => setShowChapterPicker(true)}
+                      style={styles.moreButton}>
+                      <Text style={styles.moreText}>
+                        查看全部 {chapters.length} 章
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </>
+              ) : (
+                <Text style={styles.info}>没有章节</Text>
+              )}
             </View>
           )}
+        </View>
+      </ScrollView>
 
-          {pictures.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>图片 ({pictures.length})</Text>
-              {pictures.slice(0, 20).map(picture => (
-                <Image
-                  key={picture}
-                  source={{ uri: picture }}
-                  style={styles.picture}
-                  resizeMode="contain"
-                />
-              ))}
-              {pictures.length > 20 ? (
-                <Text style={styles.meta}>仅显示前 20 张</Text>
-              ) : null}
-            </View>
-          )}
-
-          {chapters.length === 0 && pictures.length === 0 ? (
-            <Text style={styles.info}>详情页没有章节或图片结果</Text>
-          ) : null}
-            </ScrollView>
-          ) : null}
-        </>
-      )}
+      <BottomNav
+        active="discover"
+        onChange={next => {
+          onNavigate?.(next);
+          if (!onNavigate) {
+            onBack();
+          }
+        }}
+      />
     </View>
   );
 }
@@ -351,100 +433,179 @@ export function DetailScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: 4,
-    marginBottom: 6,
-  },
-  backText: {
-    color: '#93c5fd',
-    fontSize: 13,
-  },
-  title: {
-    color: '#f8fafc',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  meta: {
-    color: '#94a3b8',
-    fontSize: 12,
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  info: {
-    color: '#94a3b8',
-    fontSize: 13,
-    marginTop: 12,
-  },
-  error: {
-    color: '#fca5a5',
-    fontSize: 12,
-    marginTop: 12,
+    backgroundColor: theme.background,
   },
   content: {
-    paddingBottom: 24,
+    paddingBottom: 120,
+  },
+  coverWrap: {
+    height: 300,
+    backgroundColor: theme.surface,
   },
   cover: {
     width: '100%',
-    height: 220,
-    borderRadius: 6,
-    backgroundColor: '#111827',
+    height: '100%',
+  },
+  coverEmpty: {
+    backgroundColor: theme.surface,
+  },
+  topBar: {
+    position: 'absolute',
+    top: 12,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  circleButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  circleText: {
+    color: theme.text,
+    fontSize: 18,
+    lineHeight: 20,
+  },
+  body: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+  },
+  title: {
+    color: theme.text,
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  author: {
+    color: theme.textMuted,
+    fontSize: 12,
+    marginTop: 6,
+  },
+  pills: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  pill: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillActive: {
+    backgroundColor: theme.accent,
+  },
+  pillText: {
+    color: theme.accent,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  pillTextActive: {
+    color: '#FFFFFF',
+  },
+  section: {
+    marginTop: 22,
+  },
+  sectionTitle: {
+    color: theme.text,
+    fontSize: 15,
+    fontWeight: '700',
     marginBottom: 10,
   },
   desc: {
-    color: '#cbd5e1',
+    color: theme.text,
+    fontSize: 13,
+    lineHeight: 21,
+  },
+  tagWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tag: {
+    color: theme.text,
+    backgroundColor: theme.surface,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  section: {
-    marginTop: 12,
-  },
-  sectionTitle: {
-    color: '#e2e8f0',
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 6,
+    overflow: 'hidden',
   },
   chapterRow: {
-    borderBottomColor: '#1e293b',
+    borderBottomColor: theme.border,
     borderBottomWidth: 1,
-    paddingVertical: 8,
+    paddingVertical: 13,
   },
   chapterTitle: {
-    color: '#f1f5f9',
-    fontSize: 13,
+    color: theme.text,
+    fontSize: 14,
   },
   chapterMeta: {
-    color: '#64748b',
-    fontSize: 10,
-    marginTop: 2,
-  },
-  search: {
-    backgroundColor: '#0b1220',
-    borderColor: '#1e293b',
-    borderWidth: 1,
-    borderRadius: 6,
-    color: '#e2e8f0',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginTop: 8,
-    marginBottom: 4,
-    fontSize: 13,
+    color: theme.textMuted,
+    fontSize: 11,
+    marginTop: 3,
   },
   moreButton: {
-    paddingVertical: 10,
+    paddingVertical: 14,
     alignItems: 'center',
   },
   moreText: {
-    color: '#93c5fd',
+    color: theme.accent,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  info: {
+    color: theme.textMuted,
+    fontSize: 13,
+    marginTop: 14,
+  },
+  error: {
+    color: theme.danger,
+    fontSize: 12,
+    marginTop: 14,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  backText: {
+    color: theme.accent,
     fontSize: 13,
   },
-  picture: {
-    width: '100%',
-    height: 260,
-    backgroundColor: '#111827',
+  pickerTitle: {
+    color: theme.text,
+    fontSize: 20,
+    fontWeight: '700',
+    paddingHorizontal: 16,
+  },
+  meta: {
+    color: theme.textMuted,
+    fontSize: 12,
+    marginTop: 4,
     marginBottom: 8,
+    paddingHorizontal: 16,
+  },
+  search: {
+    backgroundColor: theme.surface,
+    borderRadius: 18,
+    color: theme.text,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 6,
+    fontSize: 13,
   },
 });

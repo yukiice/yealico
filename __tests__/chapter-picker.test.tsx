@@ -62,6 +62,11 @@ async function renderDetail(): Promise<
 test('opens the chapter picker and filters by query', async () => {
   const tree = await renderDetail();
 
+  const chaptersTab = tree.root.findByProps({ testID: 'detail-tab-chapters' });
+  await ReactTestRenderer.act(async () => {
+    chaptersTab.props.onPress();
+  });
+
   const open = tree.root.findByProps({ testID: 'chapter-picker-open' });
 
   await ReactTestRenderer.act(async () => {

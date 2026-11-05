@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  FlatList,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -25,6 +27,9 @@ import { errorText } from './diagnostics';
 import { contentState, displayIdCode } from './presentation';
 import type { ReadingProgressRepository } from './readingProgress';
 import { createRuleFetcherForPlan } from './ruleFetcherForPlan';
+import { BottomNav } from './BottomNav';
+import type { BottomTab } from './BottomNav';
+import { lightTheme as theme } from './theme';
 
 export function defaultPageFor(rule: RuleDocument): number | undefined {
   const pages = rule.pages ?? [];
@@ -65,6 +70,7 @@ export function SiteWorkspace({
   const [error, setError] = useState('');
   const [selectedItem, setSelectedItem] = useState<ExtractItem | null>(null);
   const [debugOpen, setDebugOpen] = useState(false);
+  const [tab, setTab] = useState<BottomTab>('discover');
   const debug = useRef(new DebugSession()).current;
 
   const built = useMemo(() => {
@@ -80,8 +86,11 @@ export function SiteWorkspace({
     () => createRuleFetcherForPlan(built.plan),
     [built.plan],
   );
-  const lastRead = progress.latestForSite(site.id);
   const listState = contentState(items.length, error);
+  const history = useMemo(
+    () => progress.list().filter(entry => entry.siteId === site.id),
+    [progress, site.id],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -167,79 +176,130 @@ export function SiteWorkspace({
         progress={progress}
         debug={debug}
         onBack={() => setSelectedItem(null)}
+        onNavigate={next => {
+          setSelectedItem(null);
+          setTab(next);
+        }}
       />
+    );
+  }
+
+  if (tab !== 'discover') {
+    return (
+      <View style={styles.root}>
+        <View style={styles.simpleHeader}>
+          <Text style={styles.simpleTitle}>
+            {tab === 'favorites' ? '收藏' : tab === 'history' ? '历史' : '我'}
+          </Text>
+        </View>
+        {tab === 'favorites' ? (
+          <Text style={styles.placeholder}>收藏功能即将上线</Text>
+        ) : null}
+        {tab === 'history' ? (
+          <FlatList
+            data={history}
+            keyExtractor={entry => `${entry.chapterKey}`}
+            contentContainerStyle={styles.historyList}
+            ListEmptyComponent={
+              <Text style={styles.placeholder}>还没有阅读记录</Text>
+            }
+            renderItem={({ item }) => (
+              <View style={styles.historyRow}>
+                <Text style={styles.historyTitle}>
+                  {item.chapterTitle ?? item.chapterKey}
+                </Text>
+                <Text style={styles.historyMeta}>
+                  第 {item.index + 1} 张 · {item.total && item.total > 0 ? item.total : '?'} 张
+                </Text>
+              </View>
+            )}
+          />
+        ) : null}
+        {tab === 'me' ? (
+          <View style={styles.me}>
+            <Text style={styles.meName}>{site.name}</Text>
+            <Text style={styles.meMeta}>{site.domain}</Text>
+            <Pressable onPress={onBack} style={styles.meButton}>
+              <Text style={styles.meButtonText}>站点管理</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setDebugOpen(true)}
+              style={styles.meButtonGhost}>
+              <Text style={styles.meButtonGhostText}>调试</Text>
+            </Pressable>
+          </View>
+        ) : null}
+        <BottomNav
+          active={tab}
+          onChange={next => {
+            setTab(next);
+          }}
+        />
+      </View>
     );
   }
 
   return (
     <View style={styles.root}>
-      <Pressable onPress={onBack} style={styles.backButton}>
-        <Text style={styles.backText}>← 返回站点</Text>
-      </Pressable>
       <View style={styles.headerRow}>
-        <View style={styles.headerText}>
-          <Text style={styles.title}>{site.name}</Text>
-          <Text style={styles.meta}>{site.domain}</Text>
-        </View>
-        <Pressable onPress={() => setDebugOpen(true)} style={styles.debugButton}>
-          <Text style={styles.debugButtonText}>调试</Text>
+        <Text style={styles.siteName}>{site.name}</Text>
+        <Pressable onPress={() => setDebugOpen(true)} hitSlop={8}>
+          <Text style={styles.debugText}>调试</Text>
         </Pressable>
       </View>
-      {lastRead ? (
-        <Text style={styles.lastRead}>
-          {`上次读到《${lastRead.chapterTitle ?? lastRead.chapterKey}》第 ${
-            lastRead.index + 1
-          } 张`}
-        </Text>
-      ) : null}
 
-      {pages.length > 0 && (
+      <View style={styles.searchBox}>
+        <Text style={styles.searchGlyph}>⌕</Text>
+        <TextInput
+          testID="site-search-input"
+          value={searchInput}
+          onChangeText={setSearchInput}
+          placeholder="搜索漫画、作者或标签"
+          placeholderTextColor={theme.textMuted}
+          style={styles.searchInput}
+          returnKeyType="search"
+          onSubmitEditing={() => setSearchKeyword(searchInput)}
+        />
+        {searchInput.length > 0 ? (
+          <Pressable
+            testID="site-search-clear"
+            hitSlop={8}
+            onPress={() => {
+              setSearchInput('');
+              setSearchKeyword('');
+            }}>
+            <Text style={styles.searchClear}>×</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
+      {pages.length > 0 ? (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.pageScroll}
           contentContainerStyle={styles.pageList}>
-          {pages.map(item => (
-            <Pressable
-              key={item.index}
-              onPress={() => {
-                setSelectedItem(null);
-                setPage(item.index);
-              }}
-              style={[
-                styles.pageButton,
-                page === item.index && styles.pageButtonActive,
-              ]}>
-              <Text
-                style={[
-                  styles.pageText,
-                  page === item.index && styles.pageTextActive,
-                ]}>
-                {item.name}
-              </Text>
-            </Pressable>
-          ))}
+          {pages.map(item => {
+            const active = !searchKeyword && page === item.index;
+            return (
+              <Pressable
+                key={item.index}
+                onPress={() => {
+                  setSearchInput('');
+                  setSearchKeyword('');
+                  setPage(item.index);
+                }}
+                style={styles.pageItem}>
+                <Text
+                  style={[styles.pageText, active && styles.pageTextActive]}>
+                  {item.name}
+                </Text>
+                {active ? <View style={styles.pageUnderline} /> : null}
+              </Pressable>
+            );
+          })}
         </ScrollView>
-      )}
-
-      <View style={styles.searchRow}>
-        <TextInput
-          testID="site-search-input"
-          value={searchInput}
-          onChangeText={setSearchInput}
-          placeholder="搜索作品，留空恢复列表"
-          placeholderTextColor="#64748b"
-          style={styles.searchInput}
-          returnKeyType="search"
-          onSubmitEditing={() => setSearchKeyword(searchInput)}
-        />
-        <Pressable
-          testID="site-search-submit"
-          onPress={() => setSearchKeyword(searchInput)}
-          style={styles.searchButton}>
-          <Text style={styles.searchButtonText}>搜索</Text>
-        </Pressable>
-      </View>
+      ) : null}
 
       {loading ? (
         <Text style={styles.info}>
@@ -254,24 +314,39 @@ export function SiteWorkspace({
             </Text>
           ) : null}
           {listState === 'content' ? (
-            <ScrollView contentContainerStyle={styles.list}>
-              {items.map((item, index) => (
+            <FlatList
+              data={items}
+              numColumns={3}
+              keyExtractor={(item, index) => item.idCode ?? `${index}`}
+              contentContainerStyle={styles.grid}
+              columnWrapperStyle={styles.gridRow}
+              renderItem={({ item }) => (
                 <Pressable
-                  key={item.idCode ?? `${index}`}
-                  onPress={() => setSelectedItem(item)}
-                  style={styles.item}>
-                  <Text style={styles.itemTitle}>{item.title ?? '(无标题)'}</Text>
-                  {item.idCode ? (
-                    <Text style={styles.itemMeta}>
-                      {displayIdCode(item.idCode)}
-                    </Text>
-                  ) : null}
+                  style={styles.card}
+                  onPress={() => setSelectedItem(item)}>
+                  {item.cover ? (
+                    <Image
+                      source={{ uri: item.cover }}
+                      style={styles.cover}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={[styles.cover, styles.coverEmpty]} />
+                  )}
+                  <Text style={styles.cardTitle} numberOfLines={2}>
+                    {item.title ?? '(无标题)'}
+                  </Text>
+                  <Text style={styles.cardMeta}>
+                    {displayIdCode(item.idCode ?? '')}
+                  </Text>
                 </Pressable>
-              ))}
-            </ScrollView>
+              )}
+            />
           ) : null}
         </>
       )}
+
+      <BottomNav active={tab} onChange={setTab} />
     </View>
   );
 }
@@ -279,126 +354,183 @@ export function SiteWorkspace({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: 4,
-    marginBottom: 6,
-  },
-  backText: {
-    color: '#93c5fd',
-    fontSize: 13,
-  },
-  title: {
-    color: '#f8fafc',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  searchRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8,
-  },
-  searchInput: {
-    flex: 1,
-    color: '#e2e8f0',
-    backgroundColor: '#111827',
-    borderColor: '#334155',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    fontSize: 13,
-  },
-  searchButton: {
-    backgroundColor: '#1d4ed8',
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-  },
-  searchButtonText: {
-    color: '#eff6ff',
-    fontSize: 13,
-    fontWeight: '600',
+    backgroundColor: theme.background,
+    paddingHorizontal: 16,
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    marginBottom: 12,
   },
-  headerText: {
+  siteName: {
+    color: theme.text,
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  debugText: {
+    color: theme.textMuted,
+    fontSize: 12,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.surface,
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    height: 44,
+  },
+  searchGlyph: {
+    color: theme.textMuted,
+    fontSize: 18,
+    marginRight: 8,
+  },
+  searchInput: {
     flex: 1,
+    color: theme.text,
+    fontSize: 14,
+    padding: 0,
   },
-  debugButton: {
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginTop: 4,
-  },
-  debugButtonText: {
-    color: '#e2e8f0',
-    fontSize: 11,
-  },
-  meta: {
-    color: '#94a3b8',
-    fontSize: 12,
-    marginTop: 4,
-    marginBottom: 10,
-  },
-  lastRead: {
-    color: '#93c5fd',
-    fontSize: 12,
-    marginBottom: 8,
+  searchClear: {
+    color: theme.textMuted,
+    fontSize: 18,
+    paddingLeft: 8,
   },
   pageScroll: {
     flexGrow: 0,
+    marginTop: 14,
+    marginBottom: 6,
   },
   pageList: {
-    paddingBottom: 8,
+    gap: 22,
   },
-  pageButton: {
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-    marginRight: 8,
-  },
-  pageButtonActive: {
-    backgroundColor: '#1d4ed8',
+  pageItem: {
+    alignItems: 'center',
+    paddingVertical: 4,
   },
   pageText: {
-    color: '#cbd5e1',
-    fontSize: 12,
-  },
-  pageTextActive: {
-    color: '#eff6ff',
-    fontWeight: '600',
-  },
-  info: {
-    color: '#94a3b8',
-    fontSize: 13,
-    marginTop: 12,
-  },
-  error: {
-    color: '#fca5a5',
-    fontSize: 12,
-    marginTop: 12,
-  },
-  list: {
-    paddingBottom: 24,
-  },
-  item: {
-    borderBottomColor: '#1e293b',
-    borderBottomWidth: 1,
-    paddingVertical: 10,
-  },
-  itemTitle: {
-    color: '#f1f5f9',
+    color: theme.textMuted,
     fontSize: 14,
   },
-  itemMeta: {
-    color: '#64748b',
+  pageTextActive: {
+    color: theme.accent,
+    fontWeight: '600',
+  },
+  pageUnderline: {
+    width: 16,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: theme.accent,
+    marginTop: 4,
+  },
+  info: {
+    color: theme.textMuted,
+    fontSize: 13,
+    marginTop: 16,
+  },
+  error: {
+    color: theme.danger,
+    fontSize: 12,
+    marginTop: 16,
+  },
+  grid: {
+    paddingTop: 14,
+    paddingBottom: 120,
+  },
+  gridRow: {
+    gap: 12,
+    marginBottom: 18,
+  },
+  card: {
+    flex: 1,
+    maxWidth: '31.5%',
+  },
+  cover: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    borderRadius: 8,
+    backgroundColor: theme.surface,
+  },
+  coverEmpty: {
+    backgroundColor: theme.surface,
+  },
+  cardTitle: {
+    color: theme.text,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 6,
+    lineHeight: 17,
+    minHeight: 34,
+  },
+  cardMeta: {
+    color: theme.textMuted,
     fontSize: 11,
     marginTop: 3,
+  },
+  simpleHeader: {
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  simpleTitle: {
+    color: theme.text,
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  placeholder: {
+    color: theme.textMuted,
+    fontSize: 13,
+    marginTop: 16,
+  },
+  historyList: {
+    paddingBottom: 120,
+  },
+  historyRow: {
+    borderBottomColor: theme.border,
+    borderBottomWidth: 1,
+    paddingVertical: 12,
+  },
+  historyTitle: {
+    color: theme.text,
+    fontSize: 14,
+  },
+  historyMeta: {
+    color: theme.textMuted,
+    fontSize: 11,
+    marginTop: 3,
+  },
+  me: {
+    marginTop: 8,
+  },
+  meName: {
+    color: theme.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  meMeta: {
+    color: theme.textMuted,
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  meButton: {
+    backgroundColor: theme.accent,
+    borderRadius: 22,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  meButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  meButtonGhost: {
+    marginTop: 10,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  meButtonGhostText: {
+    color: theme.textMuted,
+    fontSize: 13,
   },
 });

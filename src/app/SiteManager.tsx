@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Modal,
   Pressable,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -158,11 +160,17 @@ export function SiteManager(): React.JSX.Element {
 
   if (selectedSite) {
     return (
-      <SiteWorkspace
-        site={selectedSite}
-        progress={progress}
-        onBack={() => setSelectedSite(null)}
-      />
+      <Modal
+        visible
+        animationType="slide"
+        onRequestClose={() => setSelectedSite(null)}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <SiteWorkspace
+          site={selectedSite}
+          progress={progress}
+          onBack={() => setSelectedSite(null)}
+        />
+      </Modal>
     );
   }
 
