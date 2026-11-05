@@ -197,6 +197,7 @@ export function SiteWorkspace({
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.pageScroll}
           contentContainerStyle={styles.pageList}>
           {pages.map(item => (
             <Pressable
@@ -348,6 +349,9 @@ const styles = StyleSheet.create({
     color: '#93c5fd',
     fontSize: 12,
     marginBottom: 8,
+  },
+  pageScroll: {
+    flexGrow: 0,
   },
   pageList: {
     paddingBottom: 8,

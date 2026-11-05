@@ -32,7 +32,6 @@
       "code": "UNKNOWN_FIELD",
       "detail": "unknownOption"
     },
-
     {
       "fieldPath": "searchUrl.unknown",
       "code": "UNKNOWN_PLACEHOLDER",

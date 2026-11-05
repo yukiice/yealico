@@ -69,3 +69,14 @@ release 构建默认禁止明文，除了把规则 URL 切到 https，还处理�
 - 快速退出重进：第 4 話 → 返回详情 → 再进入，进度保持 `1 / 32 图`，无崩溃。
 - 断网：飞行模式下已缓存图片仍显示（RN Image 缓存），没有白屏；未缓存的图片失败路径未复现。
 - 长列表：comicbz 单部作品章节较少，长列表回归仍依赖漫画柜 650 章样本（当前 403 不可达）。
+
+## 8. 站内搜索
+
+- `rules.search` 原来是旧版结构（`.mh-list .mh-item` + `.title`），只覆盖桌面页。
+- 实测同一 URL 按 UA 分流：
+  - 桌面 UA（macOS Chrome 126）：`ul.mh-list > .mh-item`，封面 `img.mh-cover`，标题 `h2.title`。
+  - 移动 UA（iPhone）：`.manga-list > .manga-item`，封面 `img.manga-item-cover`，标题 `.manga-item-title`。
+- 搜索规则改成兼容两套 DOM：`item: ".mh-list .mh-item, .manga-list .manga-item"`、`cover: "img.mh-cover, img.manga-item-cover"`、`title: ".title, .manga-item-title"`。
+- `idCode` 正则收紧为 `^/([^/]+)/$`，`/48853bz/` → `48853bz`。
+- 搜索 URL 仍是 `https://{domain:}/search?title={keyword:}&page={page:}`，`BLACK` 真机返回 9 部作品，标题与 idCode 正常。
+- 引擎同时修了两个问题：`function: text` 结果统一 `trim()`（HTML 里的缩进会带进标题）；站点页签 `ScrollView` 加 `flexGrow: 0`，避免空结果时被拉伸。

@@ -39,4 +39,18 @@ P1–P3 只支持列表/详情/图库；`buildRoutePlan` 对 `searchUrl` 直接�
 
 - 只取搜索第一页，未做分页/翻页。
 - 搜索页若依赖 JS 渲染，`loadSearch` 没有显式传 `waitForSelector`，走 WebView 默认等待与 30s 超时；真实站点是否可用需要在可达站点上验证。
-- UI 分支目前只有 typecheck/lint/引擎测试覆盖，尚未加 UI 单测，也未在真机验证。
+- UI 分支目前只有 typecheck/lint/引擎测试覆盖，尚未加 UI 单测；真机已验证 comicbz 搜索，见下文。
+
+## 真机验证（comicbz）
+
+- 设备 vivo V2245A，debug 包 + Metro。
+- 搜索 `BLACK` 返回 9 部作品，标题、idCode（`48853bz` 等）正常。
+- 搜索页按 UA 分流：桌面 `.mh-item`、移动 `.manga-item`；规则用逗号选择器同时覆盖。
+- `function: text` 现在会 `trim()`，否则 HTML 缩进会让标题看起来居中。
+- 页签 `ScrollView` 加 `flexGrow: 0`，修复空结果时页签被拉伸的问题。
+
+## 未覆盖
+
+- 搜索分页（只取第 1 页）。
+- 中文关键词只能用真实输入法验证（`adb input text` 不支持中文）。
+- 搜索页依赖 WebView 的站点未验证。

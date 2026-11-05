@@ -152,29 +152,25 @@
       }
     },
     "search": {
-      "uploader": {
-        "function": "text",
-        "selector": ".chapter a"
-      },
       "cover": {
         "param": "src",
         "function": "attr",
-        "selector": "img",
+        "selector": "img.mh-cover, img.manga-item-cover",
         "regex": "^http://(.+)$",
         "replacement": "https://$1|{source:}"
       },
       "idCode": {
         "selector": "a",
         "param": "href",
-        "regex": "/(.+)/",
+        "regex": "^/([^/]+)/$",
         "function": "attr"
       },
       "item": {
-        "selector": ".mh-list .mh-item"
+        "selector": ".mh-list .mh-item, .manga-list .manga-item"
       },
       "title": {
         "function": "text",
-        "selector": ".title"
+        "selector": ".title, .manga-item-title"
       }
     },
     "tagSearch": {

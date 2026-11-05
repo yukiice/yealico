@@ -453,7 +453,7 @@ function takeValue(
   const domNode = node as AnyNode;
   switch (name) {
     case 'text':
-      return textContent(domNode);
+      return textContent(domNode).trim();
     case 'html':
       return getInnerHTML(domNode);
     case 'attr': {
@@ -472,7 +472,7 @@ function takeValue(
       return getOuterHTML(domNode);
     default:
       // 字符串函数需要先取文本值。
-      return textContent(domNode);
+      return textContent(domNode).trim();
   }
 }
 
