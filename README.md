@@ -2,7 +2,7 @@
 
 面向 Android 的规则驱动图片 / 漫画阅读器，目标是在声明支持的功能范围内运行用户已有的 Yealico 站点规则，而不是要求用户重写扩展。
 
-当前处于 **P2 引擎完成、P3 站点导入/管理/列表/详情/阅读已跑通、P4 站内搜索已接入**：Android 公开站点 List/Detail、漫画柜在线 Detail/Gallery、WebView、站点导入 UI、本地持久化、页面/列表、详情展示、连续滚动阅读器、章节连读、阅读进度恢复和站内搜索（`searchUrl` + `searchRule`）已跑通；登录/Cookie 尚未完成，不承诺全部规则兼容。
+当前处于 **P5：引擎、站点链路与站内搜索可用，首页/详情已按设计稿改版**。Android 公开站点 List/Detail、漫画柜在线 Detail/Gallery、WebView、站点导入 UI、本地持久化、页面/列表、详情展示、连续滚动阅读器、章节连读、阅读进度恢复和站内搜索（`searchUrl` + `searchRule`）已跑通；首页 3 列封面网格 + 分类页签、详情页章节/浏览双页签已完成。登录/Cookie 尚未实现，不承诺全部规则兼容。开发自检页与调试入口已移除，引擎回归以 `npm test` 和兼容矩阵为准。
 
 站点导入（JSON/URL、去重、删除）已完成；二维码导入已移除——Yealico `v2:` 是 CloudKit 引用，密钥不在客户端，无法离线解码。规则明文需从客户端 Edit 或 macOS 容器 SQLite 取得，见 [QR 研究结论](docs/rules/qr-import.md)。
 
@@ -19,7 +19,7 @@
 - Node.js >= 20.19（当前验证：24.20）
 - JDK 17
 - Android SDK 36、build-tools 36、NDK 27.1
-- 已启动的模拟器或真机
+- 已连接的 Android 真机（本仓库只用真机验收，不使用模拟器）
 
 `android/local.properties` 需指向本机 SDK，例如：
 
@@ -38,7 +38,11 @@ npm run typecheck
 npm test -- --runInBand
 npm start          # Metro
 npm run android    # 构建并安装 debug 包
+npm run android:release # release：构建 → 真机安装 → 安装成功后删除 APK
+npm run apk:clean  # 只清理构建目录里遗留的 APK
 ```
+
+交付规则：**只用真机验收，不用模拟器**；每次安装成功后立即清掉安装包，构建目录不留 APK。多台真机同时连接时用 `npm run android:release -- --serial <序列号>` 指定目标。
 
 首次 Gradle 构建可显式指定 JDK：
 
@@ -47,18 +51,11 @@ cd android
 JAVA_HOME=/path/to/jdk-17 ./gradlew assembleDebug --no-daemon
 ```
 
-## 当前自检页
+## 开发循环
 
-`App.tsx` 是开发自检页，不是产品 UI：
+`App.tsx` 只做导航外壳，入口是站点管理；自检页与调试入口已在 `a813352` 移除。引擎回归跑 `npm test`，真实站点能力以[兼容矩阵](docs/rules/compat-matrix.md)为准，不要在 App 里重新堆调试入口。
 
-- 运行 4 组合成 fixture（列表、图库、JSON、不支持能力）+ pages/totalImages，显示 10 项 PASS/FAIL。
-- 手动“真实规则网络探针”：用阿巴基猫公开规则走 `loadListPages` → 第一条 `loadDetail`，只访问公开博客。
-- 手动“WebView 规则探针”：本地 JS 页面等待 `.chapter-list`，再用漫画柜形态的 `chapterRule` 解析。
-- 手动“漫画柜在线探针”：详情页章节列表 + 第一页图库；当前站点图库 selector 已改版，探针使用兼容 selector。
-- 显示 20 次重复的解析耗时基线。
-- 明确标注“合成 fixture，仅验证规则引擎；网络探针不代表全部真实站点兼容”。
-
-开发循环提示：改动 `src/engine` 后，Metro 对新增文件的监听可能滞后；请重启 Metro（`--reset-cache`），必要时执行 `adb shell pm clear com.yealico` 清除旧 bundle。
+改动 `src/engine` 后，Metro 对新增文件的监听可能滞后；请重启 Metro（`--reset-cache`），必要时执行 `adb shell pm clear com.yealico` 清除旧 bundle。
 
 ## 目录
 
@@ -98,9 +95,9 @@ docs/architecture/       阶段基线与运行时记录
 
 ## 已知限制
 
-- UI：站点导入/列表/删除、页面选择、列表、详情展示、连续滚动与双页阅读（含右到左）、章节连读、阅读进度、站内搜索和调试页已实现。
+- UI：站点导入/列表/删除、页面选择、列表、详情展示、连续滚动与双页阅读（含右到左）、章节连读、阅读进度、站内搜索已实现；首页/详情为浅色主题，站点管理与阅读器仍是深色。
 - WebView 已能渲染并取 DOM，阅读器已接入单章节画廊；登录、consent、Cookie 共享尚未实现，图片请求只补了规则头与默认 Referer。
-- Android 验证了阿巴基猫公开 List/Detail、漫画柜 WebView 列表/详情/章节；导入→列表→详情→章节→连续滚动→章节连读→进度落盘→冷重启恢复→调试页已在模拟器跑通，详见验收记录。
+- Android 真机已验证阿巴基猫公开 List/Detail、漫画柜 WebView 列表/详情/章节，以及 comicbz 列表/详情/阅读器、mangacopy 列表/详情；导入→列表→详情→章节→阅读→进度落盘→冷重启恢复链路已跑通。详见[验收记录](docs/architecture/p3-android-verification.md)与 [P5 记录](docs/architecture/p5-home-detail-ui.md)。
 - 二维码导入已移除（2026-10-22）：Yealico `v2:` 是 CloudKit 引用，离线不可解码；相机扫码、QR 解析层与原生依赖均已删除，导入只保留粘贴 JSON 与规则 URL。研究结论与取明文路径见 [QR 研究结论](docs/rules/qr-import.md)。
 - `+` 多 JSONPath、`$root` 完整语法、数学表达式 replacement、GBK/Big5 尚未实现或验证。
 - 真实规则来自作者 `wc3818290`，只在私有仓库/本地测试使用；不要公开再分发。
