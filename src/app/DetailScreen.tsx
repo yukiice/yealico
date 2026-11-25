@@ -101,6 +101,9 @@ export function DetailScreen({
   domain,
   rule,
   plan,
+  forceWebView,
+  cookie,
+  onCookies,
   item,
   progress,
   debug,
@@ -112,13 +115,27 @@ export function DetailScreen({
   domain: string;
   rule: RuleDocument;
   plan: RoutePlan;
+  /** 站点级强制 WebView，见 createRuleFetcherForPlan。 */
+  forceWebView?: boolean;
+  /** 站点级 Cookie。 */
+  cookie?: string;
+  /** WebView 渲染后回传的 Cookie。 */
+  onCookies?: (cookie: string) => void;
   item: ExtractItem;
   progress: ReadingProgressRepository;
   debug: DebugSession;
   onBack: () => void;
   onNavigate?: (tab: BottomTab) => void;
 }): React.JSX.Element {
-  const fetcher = useMemo(() => createRuleFetcherForPlan(plan), [plan]);
+  const fetcher = useMemo(
+    () =>
+      createRuleFetcherForPlan(plan, {
+        forceWebView,
+        ...(cookie ? { cookie } : {}),
+        ...(onCookies ? { onCookies } : {}),
+      }),
+    [cookie, forceWebView, onCookies, plan],
+  );
   const [detail, setDetail] = useState<DetailResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -222,6 +239,9 @@ export function DetailScreen({
         domain={domain}
         rule={rule}
         plan={plan}
+        forceWebView={forceWebView}
+        cookie={cookie}
+        onCookies={onCookies}
         chapter={activeChapter}
         chapters={chapters}
         chapterIndex={chapterIndex}

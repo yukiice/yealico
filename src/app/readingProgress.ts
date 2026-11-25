@@ -33,6 +33,8 @@ export interface SiteLibraryData {
   version: 2;
   sites: StoredSite[];
   progress: ReadingProgressEntry[];
+  /** 上次打开的站点；缺省时由调用方选第一个。 */
+  lastSiteId?: string;
 }
 
 /** 单站点最多保留的章节进度条数，防止长期使用无限增长。 */
@@ -288,6 +290,9 @@ export function parseSiteLibrary(raw: string | null): SiteLibraryData {
         version: 2,
         sites: record.sites as StoredSite[],
         progress: normalizeEntries(record.progress),
+        ...(typeof record.lastSiteId === 'string'
+          ? { lastSiteId: record.lastSiteId }
+          : {}),
       };
     }
   }
@@ -297,6 +302,12 @@ export function parseSiteLibrary(raw: string | null): SiteLibraryData {
 export function serializeSiteLibrary(
   sites: StoredSite[],
   progress: ReadingProgressEntry[],
+  lastSiteId?: string,
 ): string {
-  return JSON.stringify({ version: 2, sites, progress });
+  return JSON.stringify({
+    version: 2,
+    sites,
+    progress,
+    ...(lastSiteId ? { lastSiteId } : {}),
+  });
 }

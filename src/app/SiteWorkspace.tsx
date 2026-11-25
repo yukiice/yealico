@@ -49,10 +49,16 @@ export function SiteWorkspace({
   site,
   progress,
   onBack,
+  onCookies,
+  onOpenSwitcher,
 }: {
   site: StoredSite;
   progress: ReadingProgressRepository;
   onBack: () => void;
+  /** WebView 渲染后回传的 Cookie，由外层落盘。 */
+  onCookies?: (cookie: string) => void;
+  /** 打开站点切换面板。 */
+  onOpenSwitcher?: () => void;
 }): React.JSX.Element {
   const rule = useMemo(() => {
     const rebuilt = importRuleText(site.raw, site.source).site;
@@ -81,8 +87,13 @@ export function SiteWorkspace({
     return buildPagePlan(rule, page ?? 0);
   }, [pages.length, page, rule]);
   const fetcher = useMemo(
-    () => createRuleFetcherForPlan(built.plan),
-    [built.plan],
+    () =>
+      createRuleFetcherForPlan(built.plan, {
+        forceWebView: site.forceWebView,
+        ...(site.cookies ? { cookie: site.cookies } : {}),
+        ...(onCookies ? { onCookies } : {}),
+      }),
+    [built.plan, onCookies, site.cookies, site.forceWebView],
   );
   const listState = contentState(items.length, error);
   const history = useMemo(
@@ -159,6 +170,9 @@ export function SiteWorkspace({
         domain={site.domain}
         rule={built.rule}
         plan={built.plan}
+        forceWebView={site.forceWebView}
+        cookie={site.cookies}
+        onCookies={onCookies}
         item={selectedItem}
         progress={progress}
         debug={debug}
@@ -207,7 +221,7 @@ export function SiteWorkspace({
             <Text style={styles.meName}>{site.name}</Text>
             <Text style={styles.meMeta}>{site.domain}</Text>
             <Pressable onPress={onBack} style={styles.meButton}>
-              <Text style={styles.meButtonText}>站点管理</Text>
+              <Text style={styles.meButtonText}>切换站点</Text>
             </Pressable>
           </View>
         ) : null}
@@ -224,7 +238,13 @@ export function SiteWorkspace({
   return (
     <View style={styles.root}>
       <View style={styles.headerRow}>
-        <Text style={styles.siteName}>{site.name}</Text>
+        <Pressable
+          testID="open-site-switcher"
+          onPress={onOpenSwitcher}
+          style={styles.siteSelector}>
+          <Text style={styles.siteName}>{site.name}</Text>
+          <Text style={styles.siteChevron}>▾</Text>
+        </Pressable>
       </View>
 
       <View style={styles.searchBox}>
@@ -347,6 +367,17 @@ const styles = StyleSheet.create({
     color: theme.text,
     fontSize: 20,
     fontWeight: '700',
+  },
+  siteSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  siteChevron: {
+    color: theme.textMuted,
+    fontSize: 14,
+    marginTop: 2,
   },
   debugText: {
     color: theme.textMuted,

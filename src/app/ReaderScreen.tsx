@@ -171,6 +171,9 @@ export function ReaderScreen({
   domain,
   rule,
   plan,
+  forceWebView,
+  cookie,
+  onCookies,
   chapter,
   chapters = [],
   chapterIndex = -1,
@@ -184,6 +187,12 @@ export function ReaderScreen({
   domain: string;
   rule: RuleDocument;
   plan: RoutePlan;
+  /** 站点级强制 WebView，见 createRuleFetcherForPlan。 */
+  forceWebView?: boolean;
+  /** 站点级 Cookie。 */
+  cookie?: string;
+  /** WebView 渲染后回传的 Cookie。 */
+  onCookies?: (cookie: string) => void;
   chapter: ChapterItem;
   /** 当前详情页的完整章节列表，用于跨章连读。 */
   chapters?: ChapterItem[];
@@ -194,7 +203,15 @@ export function ReaderScreen({
   debug: DebugSession;
   onBack: () => void;
 }): React.JSX.Element {
-  const fetcher = useMemo(() => createRuleFetcherForPlan(plan), [plan]);
+  const fetcher = useMemo(
+    () =>
+      createRuleFetcherForPlan(plan, {
+        forceWebView,
+        ...(cookie ? { cookie } : {}),
+        ...(onCookies ? { onCookies } : {}),
+      }),
+    [cookie, forceWebView, onCookies, plan],
+  );
   const headers = useMemo(() => imageHeaders(rule, domain), [domain, rule]);
   const chapterKey = useMemo(() => progressKeyFor(chapter), [chapter]);
   const chapterUrl = typeof chapter.url === 'string' ? chapter.url : '';
