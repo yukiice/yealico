@@ -202,6 +202,10 @@ export async function importRuleFromUrl(
 
 export interface StoredSite extends ImportedRuleSite {
   importedAt: string;
+  /** 站点级强制 WebView：站点有 Cloudflare 挑战或必须执行 JS 时使用。 */
+  forceWebView?: boolean;
+  /** 站点级 Cookie（登录态 / cf_clearance），粘贴或 WebView 回传后落盘。 */
+  cookies?: string;
 }
 
 /**
@@ -254,6 +258,31 @@ export class SiteRepository {
     const before = this.sites.length;
     this.sites = this.sites.filter(site => site.id !== id);
     return this.sites.length !== before;
+  }
+
+  /** 切换站点是否强制走 WebView；站点不存在时返回 false。 */
+  setForceWebView(id: string, forceWebView: boolean): boolean {
+    const site = this.sites.find(item => item.id === id);
+    if (!site) {
+      return false;
+    }
+    site.forceWebView = forceWebView;
+    return true;
+  }
+
+  /** 写入站点 Cookie；传空串等于清除。站点不存在时返回 false。 */
+  setCookies(id: string, cookies: string): boolean {
+    const site = this.sites.find(item => item.id === id);
+    if (!site) {
+      return false;
+    }
+    const trimmed = cookies.trim();
+    if (trimmed) {
+      site.cookies = trimmed;
+    } else {
+      delete site.cookies;
+    }
+    return true;
   }
 
   clear(): void {
