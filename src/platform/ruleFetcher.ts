@@ -33,6 +33,8 @@ export interface FetchRuleFetcherOptions {
   timeoutMs?: number;
   /** RN fetch 默认携带 Cookie；需要匿名请求时传 omit。 */
   credentials?: string;
+  /** 站点级 Cookie，注入到请求头；规则自带的 Cookie 优先。 */
+  cookie?: string;
 }
 
 /** 默认浏览器请求头：站点常按 UA / Accept 返回不同页面，缺省时用桌面浏览器形态。 */
@@ -112,6 +114,12 @@ function headersToObject(headers: unknown): Record<string, string> | undefined {
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
+function hasHeader(headers: Record<string, string>, name: string): boolean {
+  return Object.keys(headers).some(
+    key => key.toLowerCase() === name.toLowerCase(),
+  );
+}
+
 export function createFetchRuleFetcher(
   options: FetchRuleFetcherOptions = {},
 ): RuleFetcher {
@@ -137,9 +145,13 @@ export function createFetchRuleFetcher(
       }
 
       try {
+        const headers = withBrowserHeaders(request.headers);
+        if (options.cookie && !hasHeader(headers, 'cookie')) {
+          headers.Cookie = options.cookie;
+        }
         const response = await fetchImpl(request.url, {
           method: request.method,
-          headers: withBrowserHeaders(request.headers),
+          headers,
           ...(request.body !== undefined ? { body: request.body } : {}),
           ...(controller ? { signal: controller.signal } : {}),
           credentials,

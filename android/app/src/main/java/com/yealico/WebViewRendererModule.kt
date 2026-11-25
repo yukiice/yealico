@@ -47,8 +47,17 @@ class WebViewRendererModule(
     waitForSelector: String?,
     timeoutMs: Double,
     userAgent: String?,
+    cookie: String?,
     promise: Promise,
   ) {
+    // 先写入 Cookie 再 loadUrl：Cloudflare 的 cf_clearance 和登录态
+    // 都靠这一步才能在页面请求时生效。
+    if (!cookie.isNullOrEmpty()) {
+      val manager = CookieManager.getInstance()
+      manager.setAcceptCookie(true)
+      manager.setCookie(url, cookie)
+      manager.flush()
+    }
     start(promise, waitForSelector, timeoutMs, userAgent) { webView ->
       webView.loadUrl(
         url,
@@ -306,11 +315,18 @@ class WebViewRendererModule(
     url: String,
     html: String,
   ) {
+    // 把站点实际落下的 Cookie 回传 JS，用于下次直接走 fetch。
+    val cookie = try {
+      CookieManager.getInstance().getCookie(url) ?: ""
+    } catch (error: Exception) {
+      ""
+    }
     cleanup(container)
     promise.resolve(
       com.facebook.react.bridge.Arguments.createMap().apply {
         putString("url", url)
         putString("body", html)
+        putString("cookie", cookie)
       },
     )
   }

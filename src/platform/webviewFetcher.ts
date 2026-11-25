@@ -12,17 +12,27 @@ export interface WebViewRendererLike {
       waitForSelector?: string;
       timeoutMs?: number;
       userAgent?: string;
+      /** 渲染前写入 WebView CookieManager，用于 cf_clearance 和登录态。 */
+      cookie?: string;
     },
-  ): Promise<{ url: string; body: string }>;
+  ): Promise<{ url: string; body: string; cookie?: string }>;
   renderHtml(
     html: string,
     baseUrl: string,
     options?: { waitForSelector?: string; timeoutMs?: number },
-  ): Promise<{ url: string; body: string }>;
+  ): Promise<{ url: string; body: string; cookie?: string }>;
+}
+
+export interface WebViewFetcherOptions {
+  /** 渲染后把站点落下的 Cookie 回传，供调用方持久化。 */
+  onCookies?: (cookie: string) => void;
+  /** 站点级 Cookie：规则没写 Cookie 时用它。 */
+  cookie?: string;
 }
 
 export function createWebViewRuleFetcher(
   renderer: WebViewRendererLike,
+  options: WebViewFetcherOptions = {},
 ): RuleFetcher {
   return {
     webview: true,
@@ -32,11 +42,17 @@ export function createWebViewRuleFetcher(
       const timeoutMs = Math.max(request.timeoutMs ?? 0, 30_000);
       const userAgent =
         request.headers['User-Agent'] ?? request.headers['user-agent'];
+      const cookie =
+        request.headers.Cookie ?? request.headers.cookie ?? options.cookie;
       const rendered = await renderer.render(request.url, {
         waitForSelector: request.waitForSelector,
         timeoutMs,
         ...(userAgent ? { userAgent } : {}),
+        ...(cookie ? { cookie } : {}),
       });
+      if (rendered.cookie && options.onCookies) {
+        options.onCookies(rendered.cookie);
+      }
       return {
         url: rendered.url,
         status: 200,

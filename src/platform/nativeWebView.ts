@@ -1,6 +1,7 @@
 import { NativeModules } from 'react-native';
 
 import type { WebViewRendererLike } from './webviewFetcher';
+import { createSerializedRenderer } from './serializedRenderer';
 
 interface NativeWebViewRenderer {
   render(
@@ -8,13 +9,14 @@ interface NativeWebViewRenderer {
     waitForSelector: string | null,
     timeoutMs: number,
     userAgent: string | null,
-  ): Promise<{ url: string; body: string }>;
+    cookie: string | null,
+  ): Promise<{ url: string; body: string; cookie?: string }>;
   renderHtml(
     html: string,
     baseUrl: string,
     waitForSelector: string | null,
     timeoutMs: number,
-  ): Promise<{ url: string; body: string }>;
+  ): Promise<{ url: string; body: string; cookie?: string }>;
 }
 
 function nativeRenderer(): NativeWebViewRenderer {
@@ -39,13 +41,14 @@ function nativeRenderer(): NativeWebViewRenderer {
  */
 export function createNativeWebViewRenderer(): WebViewRendererLike {
   const module = nativeRenderer();
-  return {
+  return createSerializedRenderer({
     render(url, options = {}) {
       return module.render(
         url,
         options.waitForSelector ?? null,
         options.timeoutMs ?? 15_000,
         options.userAgent ?? null,
+        options.cookie ?? null,
       );
     },
     renderHtml(html, baseUrl, options = {}) {
@@ -56,5 +59,5 @@ export function createNativeWebViewRenderer(): WebViewRendererLike {
         options.timeoutMs ?? 15_000,
       );
     },
-  };
+  });
 }
