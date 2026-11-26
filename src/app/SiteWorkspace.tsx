@@ -92,6 +92,7 @@ export function SiteWorkspace({
     () =>
       createRuleFetcherForPlan(built.plan, {
         forceWebView: site.forceWebView,
+        phase: 'index',
         ...(site.cookies ? { cookie: site.cookies } : {}),
         ...(onCookies ? { onCookies } : {}),
       }),

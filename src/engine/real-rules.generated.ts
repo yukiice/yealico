@@ -316,7 +316,7 @@ export const MANHUAGUI_RULE_JSON = {
     "version": "1.7@wc3818290",
     "author": "wc3818290",
     "displayMode": "collection",
-    "flags": "jsNeededDetail",
+    "flags": "jsNeededDetail,jsNeededGallery",
     "extractedAt": "2026-10-20T10:58:41.286955+00:00"
   },
   "urls": {

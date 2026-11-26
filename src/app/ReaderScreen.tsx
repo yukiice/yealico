@@ -292,6 +292,7 @@ export function ReaderScreen({
     () =>
       createRuleFetcherForPlan(plan, {
         forceWebView,
+        phase: 'gallery',
         ...(cookie ? { cookie } : {}),
         ...(onCookies ? { onCookies } : {}),
       }),

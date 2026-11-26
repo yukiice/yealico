@@ -127,6 +127,15 @@ export interface RoutePlan {
   unsupported: Diagnostic[];
 }
 
+/**
+ * 抓取阶段。
+ *
+ * 规则里的 `jsNeeded*` 标记是按阶段声明的（列表 / 详情 / 图库），
+ * 但 `capabilities.webview` 只能表达“整站某个阶段需要 JS”。
+ * 按阶段判断能避免「详情要 WebView」把静态的列表页也拖进 WebView。
+ */
+export type PagePhase = 'index' | 'detail' | 'gallery';
+
 export interface PageContext {
   /** 当前页面展开后的 URL，用于相对地址与 URL 派生占位符。 */
   baseUrl: string;

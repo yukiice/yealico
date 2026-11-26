@@ -2,6 +2,7 @@ export * from './types';
 export { buildPagePlan, buildRoutePlan, normalizeSelector } from './plan';
 export type { PageRoutePlan } from './plan';
 export { listRulePages, resolveRulePage } from './pages';
+export { needsWebViewForPhase } from './phases';
 export type { ResolvedRulePage } from './pages';
 export {
   expandUrl,

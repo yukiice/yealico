@@ -131,6 +131,7 @@ export function DetailScreen({
     () =>
       createRuleFetcherForPlan(plan, {
         forceWebView,
+        phase: 'detail',
         ...(cookie ? { cookie } : {}),
         ...(onCookies ? { onCookies } : {}),
       }),

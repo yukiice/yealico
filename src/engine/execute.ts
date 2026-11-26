@@ -2,6 +2,7 @@ import { parseDocument } from 'htmlparser2';
 import type { AnyNode } from 'domhandler';
 
 import { UnsupportedJsonPathError } from './jsonpath';
+import { needsWebViewForPhase } from './phases';
 import { normalizePageSelector, normalizeSelector } from './plan';
 import { evaluateSelector, resolveUrl, selectNodes } from './selector';
 import { expandUrl } from './placeholder';
@@ -14,6 +15,7 @@ import type {
   JsonValue,
   ListResult,
   PageContext,
+  PagePhase,
   PageUrlResult,
   PicturePageResult,
   RoutePlan,
@@ -82,13 +84,14 @@ function coerce(field: string, value: string): string | number {
 function blockingDiagnostics(
   plan: RoutePlan,
   allowWebView = false,
+  phase: PagePhase = 'index',
 ): Diagnostic[] {
-  return plan.unsupported.filter(
-    item =>
-      (!allowWebView && item.code === 'NEEDS_WEBVIEW') ||
-      item.code === 'NEEDS_LOGIN' ||
-      item.code === 'NEEDS_CONSENT',
-  );
+  return plan.unsupported.filter(item => {
+    if (item.code === 'NEEDS_WEBVIEW') {
+      return !allowWebView && needsWebViewForPhase(plan, phase);
+    }
+    return item.code === 'NEEDS_LOGIN' || item.code === 'NEEDS_CONSENT';
+  });
 }
 
 function evaluateFields(
@@ -157,7 +160,7 @@ export function executeList(
   context: PageContext,
   options: { allowWebView?: boolean } = {},
 ): ListResult {
-  const blocked = blockingDiagnostics(plan, options.allowWebView);
+  const blocked = blockingDiagnostics(plan, options.allowWebView, 'index');
   if (blocked.length > 0) {
     return { items: [], diagnostics: blocked };
   }
@@ -341,7 +344,7 @@ export function executeGallery(
   context: PageContext,
   options: GalleryExecuteOptions = {},
 ): GalleryResult {
-  const blocked = blockingDiagnostics(plan, options.allowWebView);
+  const blocked = blockingDiagnostics(plan, options.allowWebView, 'gallery');
   if (blocked.length > 0) {
     return { images: [], diagnostics: blocked };
   }
@@ -858,7 +861,7 @@ export function executePicturePage(
   context: PageContext,
   options: DetailExecuteOptions = {},
 ): PicturePageResult {
-  const blocked = blockingDiagnostics(plan, options.allowWebView);
+  const blocked = blockingDiagnostics(plan, options.allowWebView, 'gallery');
   if (blocked.length > 0) {
     return { pictures: [], diagnostics: blocked };
   }
@@ -902,7 +905,7 @@ export function executeDetail(
   context: PageContext,
   options: DetailExecuteOptions = {},
 ): DetailResult {
-  const blocked = blockingDiagnostics(plan, options.allowWebView);
+  const blocked = blockingDiagnostics(plan, options.allowWebView, 'detail');
   if (blocked.length > 0) {
     return { fields: {}, chapters: [], pictures: [], diagnostics: blocked };
   }

@@ -1,4 +1,5 @@
-import type { RoutePlan, RuleFetcher } from '../engine';
+import type { PagePhase, RoutePlan, RuleFetcher } from '../engine';
+import { needsWebViewForPhase } from '../engine';
 import { createNativeWebViewRenderer } from '../platform/nativeWebView';
 import { createFetchRuleFetcher } from '../platform/ruleFetcher';
 import { createWebViewRuleFetcher } from '../platform/webviewFetcher';
@@ -7,21 +8,24 @@ import { createWebViewRuleFetcher } from '../platform/webviewFetcher';
  * 是否需要 WebView 抓取。
  *
  * 两条来源：
- * - 规则计划声明了 NEEDS_WEBVIEW（规则本身要求 JS）；
+ * - 规则计划声明了该阶段的 NEEDS_WEBVIEW（如 jsNeededDetail 只影响详情页）；
  * - 站点级开关 forceWebView（如 Cloudflare JS 挑战，规则无法表达）。
  */
 export function shouldUseWebView(
   plan: RoutePlan,
   forceWebView = false,
+  phase: PagePhase = 'index',
 ): boolean {
   if (forceWebView) {
     return true;
   }
-  return plan.unsupported.some(item => item.code === 'NEEDS_WEBVIEW');
+  return needsWebViewForPhase(plan, phase);
 }
 
 export interface RuleFetcherOptions {
   forceWebView?: boolean;
+  /** 当前阶段：决定 jsNeeded* 标记是否对本页生效。 */
+  phase?: PagePhase;
   /** 站点级 Cookie，两条抓取路径都会带上。 */
   cookie?: string;
   /** WebView 渲染后回传的 Cookie，由调用方决定是否落盘。 */
@@ -38,7 +42,7 @@ export function createRuleFetcherForPlan(
   plan: RoutePlan,
   options: RuleFetcherOptions = {},
 ): RuleFetcher {
-  if (shouldUseWebView(plan, options.forceWebView)) {
+  if (shouldUseWebView(plan, options.forceWebView, options.phase)) {
     return createWebViewRuleFetcher(createNativeWebViewRenderer(), {
       ...(options.cookie ? { cookie: options.cookie } : {}),
       ...(options.onCookies ? { onCookies: options.onCookies } : {}),
