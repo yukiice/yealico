@@ -38,10 +38,18 @@ function nativeRenderer(): NativeWebViewRenderer {
  *
  * 原生模块负责把页面挂到 Activity、执行 JS、等待 DOM 标记并返回 outerHTML；
  * 这里是产品路径，Node 测试不会加载。
+ *
+ * 整个进程共享一个串行 renderer：列表、详情、阅读器各自会创建 fetcher，
+ * 如果每个 fetcher 各带一条队列，跨页面的渲染仍会撞上原生的 busy 保护。
  */
+let sharedRenderer: WebViewRendererLike | undefined;
+
 export function createNativeWebViewRenderer(): WebViewRendererLike {
+  if (sharedRenderer) {
+    return sharedRenderer;
+  }
   const module = nativeRenderer();
-  return createSerializedRenderer({
+  sharedRenderer = createSerializedRenderer({
     render(url, options = {}) {
       return module.render(
         url,
@@ -60,4 +68,5 @@ export function createNativeWebViewRenderer(): WebViewRendererLike {
       );
     },
   });
+  return sharedRenderer;
 }
