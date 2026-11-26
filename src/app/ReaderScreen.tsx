@@ -140,8 +140,9 @@ export function nextPageBudget(
 
 /** 图片请求默认 UA：与站点反爬要求的浏览器形态一致。 */
 export const IMAGE_USER_AGENT =
-  'Mozilla/5.0 (Linux; Android 10; SM-G981B) AppleWebKit/537.36 ' +
-  '(KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36';
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ' +
+  'AppleWebKit/537.36 (KHTML, like Gecko) ' +
+  'Chrome/126.0.0.0 Safari/537.36';
 
 /**
  * 图片请求头：沿用规则头，缺 Referer / UA / Accept 时补浏览器默认值。
@@ -159,12 +160,13 @@ export function imageHeaders(
     Object.keys(headers).some(key => key.toLowerCase() === name);
   if (!hasHeader('referer')) {
     // 图床常校验章节页 Referer，而不只是域名根路径。
-    const referer =
-      baseUrl && /^https?:/i.test(baseUrl)
-        ? baseUrl
-        : domain
-          ? `https://${domain}/`
-          : '';
+    // 浏览器发 Referer 时会去掉 fragment，这里同样剥掉，否则严格比对的图床会 403。
+    const stripped = baseUrl ? baseUrl.split('#')[0] : '';
+    const referer = /^https?:/i.test(stripped)
+      ? stripped
+      : domain
+        ? `https://${domain}/`
+        : '';
     if (referer) {
       headers.Referer = referer;
     }
