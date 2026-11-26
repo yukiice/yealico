@@ -2,28 +2,33 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { ImportOutcome } from './useSiteLibrary';
+import type { SitePreset } from './sitePresets';
+import { SITE_PRESETS } from './sitePresets';
 import { Sheet } from './Sheet';
 import { lightTheme as theme } from './theme';
 
-type ImportMode = 'paste' | 'url';
+type ImportMode = 'preset' | 'paste' | 'url';
 
 /**
- * 添加站点：粘贴规则 JSON 或拉取规则 URL。
+ * 添加站点：内置站点一键导入、粘贴规则 JSON、或拉取规则 URL。
  *
- * 导入是低频动作，收进底部弹层，首屏只留内容。
+ * 导入是低频动作，收进底部弹层，首屏只留内容。内置站点排在首位：
+ * 沿用的是同一套 JSON，只是省掉手粘六百多行规则。
  */
 export function ImportSheet({
   visible,
   onClose,
   onImportText,
   onImportUrl,
+  onImportPreset,
 }: {
   visible: boolean;
   onClose: () => void;
   onImportText: (text: string) => Promise<ImportOutcome>;
   onImportUrl: (url: string) => Promise<ImportOutcome>;
+  onImportPreset: (preset: SitePreset) => Promise<ImportOutcome>;
 }): React.JSX.Element {
-  const [mode, setMode] = useState<ImportMode>('paste');
+  const [mode, setMode] = useState<ImportMode>('preset');
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -35,6 +40,25 @@ export function ImportSheet({
     setInput('');
     setMessage('');
     onClose();
+  };
+
+  const importPreset = async (preset: SitePreset): Promise<void> => {
+    if (busy) {
+      return;
+    }
+    setBusy(true);
+    setMessage('');
+    try {
+      const outcome = await onImportPreset(preset);
+      if (outcome.ok) {
+        setMessage('');
+        onClose();
+      } else {
+        setMessage(outcome.message);
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
   const submit = async (): Promise<void> => {
@@ -67,6 +91,7 @@ export function ImportSheet({
       <View style={styles.tabs}>
         {(
           [
+            ['preset', '内置站点'],
             ['paste', '粘贴 JSON'],
             ['url', '规则 URL'],
           ] as Array<[ImportMode, string]>
@@ -85,30 +110,51 @@ export function ImportSheet({
           </Pressable>
         ))}
       </View>
-      <TextInput
-        testID="import-input"
-        value={input}
-        onChangeText={setInput}
-        editable={!busy}
-        multiline
-        autoCapitalize="none"
-        autoCorrect={false}
-        placeholder={
-          mode === 'url'
-            ? 'https://example.com/rule.json'
-            : '{"name": "...", "domain": "..."}'
-        }
-        placeholderTextColor={theme.textMuted}
-        style={[styles.input, mode === 'url' && styles.inputSingle]}
-      />
+      {mode === 'preset' ? (
+        <View style={styles.presets}>
+          {SITE_PRESETS.map(preset => (
+            <Pressable
+              key={preset.id}
+              testID={`import-preset-${preset.id}`}
+              disabled={busy}
+              onPress={() => {
+                importPreset(preset).catch(() => {});
+              }}
+              style={[styles.presetRow, busy && styles.submitDisabled]}>
+              <Text style={styles.presetName}>{preset.name}</Text>
+              <Text style={styles.presetDomain}>{preset.domain}</Text>
+              <Text style={styles.presetSummary}>{preset.summary}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : (
+        <>
+          <TextInput
+            testID="import-input"
+            value={input}
+            onChangeText={setInput}
+            editable={!busy}
+            multiline
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder={
+              mode === 'url'
+                ? 'https://example.com/rule.json'
+                : '{"name": "...", "domain": "..."}'
+            }
+            placeholderTextColor={theme.textMuted}
+            style={[styles.input, mode === 'url' && styles.inputSingle]}
+          />
+          <Pressable
+            testID="import-submit"
+            disabled={busy}
+            onPress={submit}
+            style={[styles.submit, busy && styles.submitDisabled]}>
+            <Text style={styles.submitText}>{busy ? '导入中…' : '导入'}</Text>
+          </Pressable>
+        </>
+      )}
       {message ? <Text style={styles.message}>{message}</Text> : null}
-      <Pressable
-        testID="import-submit"
-        disabled={busy}
-        onPress={submit}
-        style={[styles.submit, busy && styles.submitDisabled]}>
-        <Text style={styles.submitText}>{busy ? '导入中…' : '导入'}</Text>
-      </Pressable>
     </Sheet>
   );
 }
@@ -153,6 +199,33 @@ const styles = StyleSheet.create({
   inputSingle: {
     minHeight: 48,
     maxHeight: 72,
+  },
+  presets: {
+    gap: 10,
+  },
+  presetRow: {
+    backgroundColor: theme.surfaceAlt,
+    borderColor: theme.border,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  presetName: {
+    color: theme.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  presetDomain: {
+    color: theme.accent,
+    fontSize: 12,
+    marginTop: 3,
+  },
+  presetSummary: {
+    color: theme.textMuted,
+    fontSize: 12,
+    marginTop: 6,
+    lineHeight: 17,
   },
   message: {
     color: theme.danger,

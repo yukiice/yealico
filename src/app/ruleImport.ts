@@ -10,7 +10,8 @@ import type {
   RoutePlan,
 } from '../engine';
 
-export type RuleImportSource = 'paste' | 'url';
+/** 规则来源：粘贴、规则 URL、应用内置预设。三者共用同一条导入管线。 */
+export type RuleImportSource = 'paste' | 'url' | 'preset';
 
 export interface ImportedRuleSite {
   /** 稳定去重 ID（当前用规则原文的简单哈希，不是安全哈希）。 */

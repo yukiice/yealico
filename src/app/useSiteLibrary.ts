@@ -13,6 +13,8 @@ import {
   ReadingProgressRepository,
   serializeSiteLibrary,
 } from './readingProgress';
+import type { SitePreset } from './sitePresets';
+import { presetRuleText } from './sitePresets';
 import { createFetchRuleFetcher } from '../platform/ruleFetcher';
 import { createSiteStorage } from '../platform/siteStorage';
 
@@ -157,6 +159,22 @@ export function useSiteLibrary() {
     [applyResult],
   );
 
+  const importFromPreset = useCallback(
+    async (preset: SitePreset): Promise<ImportOutcome> => {
+      try {
+        return await applyResult(importRuleText(presetRuleText(preset), 'preset'));
+      } catch (cause) {
+        return {
+          ok: false,
+          message: `导入失败: ${
+            cause instanceof Error ? cause.message : String(cause)
+          }`,
+        };
+      }
+    },
+    [applyResult],
+  );
+
   const importFromUrl = useCallback(
     async (url: string): Promise<ImportOutcome> => {
       try {
@@ -235,6 +253,7 @@ export function useSiteLibrary() {
     lastSiteId: lastSiteIdRef.current,
     importFromText,
     importFromUrl,
+    importFromPreset,
     rememberSite,
     removeSite,
     setForceWebView,

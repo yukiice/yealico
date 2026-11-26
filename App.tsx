@@ -119,6 +119,7 @@ function App(): React.JSX.Element {
         onClose={() => setImportOpen(false)}
         onImportText={library.importFromText}
         onImportUrl={library.importFromUrl}
+        onImportPreset={library.importFromPreset}
       />
       <SiteActionsSheet
         site={actionsSite}
