@@ -1,6 +1,7 @@
 import {
   blockingReasons,
   DebugSession,
+  debugRecordSummary,
   describeCapabilities,
   formatDiagnostic,
   MAX_DEBUG_RECORDS,
@@ -153,4 +154,23 @@ test('list returns copies so callers cannot mutate the session', () => {
 
   debug.clear();
   expect(debug.list()).toEqual([]);
+});
+
+describe('debugRecordSummary', () => {
+  it('输出阶段、计数、诊断与脱敏 URL', () => {
+    const lines = debugRecordSummary({
+      stage: 'gallery',
+      label: '图片加载失败 #2',
+      counts: { image: 2 },
+      diagnostics: [],
+      urls: [
+        'https://cdn.example.test/page/1.jpg',
+        'https://cdn.example.test/page/2.jpg',
+      ],
+      at: new Date(1_700_000_000_000).toISOString(),
+    });
+    expect(lines[0]).toBe('gallery · 图片加载失败 #2');
+    expect(lines[1]).toBe('image=2');
+    expect(lines[2]).toContain('https://cdn.example.test');
+  });
 });

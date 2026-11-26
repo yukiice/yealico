@@ -189,3 +189,27 @@ export class DebugSession {
     this.records = [];
   }
 }
+
+/**
+ * 单条调试记录的展示文本。
+ *
+ * 失败 URL 用 sanitizeUrl 脱敏后输出，方便直接看出是域名、签名还是请求头问题。
+ */
+export function debugRecordSummary(record: DebugRecord): string[] {
+  const lines: string[] = [
+    `${record.stage}${record.label ? ` · ${record.label}` : ''}`,
+  ];
+  const counts = Object.entries(record.counts)
+    .map(([key, value]) => `${key}=${value}`)
+    .join(' ');
+  if (counts) {
+    lines.push(counts);
+  }
+  for (const diagnostic of record.diagnostics) {
+    lines.push(formatDiagnostic(diagnostic));
+  }
+  for (const url of record.urls.slice(0, 5)) {
+    lines.push(sanitizeUrl(url));
+  }
+  return lines;
+}

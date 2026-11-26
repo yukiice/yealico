@@ -26,6 +26,7 @@ import { errorText } from './diagnostics';
 import { contentState, displayIdCode } from './presentation';
 import type { ReadingProgressRepository } from './readingProgress';
 import { createRuleFetcherForPlan } from './ruleFetcherForPlan';
+import { DiagnosticsSheet } from './DiagnosticsSheet';
 import { BottomNav } from './BottomNav';
 import type { BottomTab } from './BottomNav';
 import { lightTheme as theme } from './theme';
@@ -75,6 +76,7 @@ export function SiteWorkspace({
   const [error, setError] = useState('');
   const [selectedItem, setSelectedItem] = useState<ExtractItem | null>(null);
   const [tab, setTab] = useState<BottomTab>('discover');
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const debug = useRef(new DebugSession()).current;
 
   const built = useMemo(() => {
@@ -223,6 +225,14 @@ export function SiteWorkspace({
             <Pressable onPress={onBack} style={styles.meButton}>
               <Text style={styles.meButtonText}>切换站点</Text>
             </Pressable>
+            <Pressable
+              testID="open-diagnostics"
+              onPress={() => setDiagnosticsOpen(true)}
+              style={[styles.meButton, styles.meButtonSecondary]}>
+              <Text style={[styles.meButtonText, styles.meButtonSecondaryText]}>
+                诊断
+              </Text>
+            </Pressable>
           </View>
         ) : null}
         <BottomNav
@@ -230,6 +240,11 @@ export function SiteWorkspace({
           onChange={next => {
             setTab(next);
           }}
+        />
+        <DiagnosticsSheet
+          visible={diagnosticsOpen}
+          debug={debug}
+          onClose={() => setDiagnosticsOpen(false)}
         />
       </View>
     );
@@ -346,6 +361,11 @@ export function SiteWorkspace({
       )}
 
       <BottomNav active={tab} onChange={setTab} />
+      <DiagnosticsSheet
+        visible={diagnosticsOpen}
+        debug={debug}
+        onClose={() => setDiagnosticsOpen(false)}
+      />
     </View>
   );
 }
@@ -528,6 +548,13 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     paddingVertical: 12,
+  },
+  meButtonSecondary: {
+    marginTop: 10,
+    backgroundColor: theme.surface,
+  },
+  meButtonSecondaryText: {
+    color: theme.text,
   },
   meButtonText: {
     color: '#FFFFFF',
