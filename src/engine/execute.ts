@@ -6,6 +6,7 @@ import { needsWebViewForPhase } from './phases';
 import { normalizePageSelector, normalizeSelector } from './plan';
 import { evaluateSelector, resolveUrl, selectNodes } from './selector';
 import { expandUrl } from './placeholder';
+import { encodeUrl } from './url';
 import type {
   Diagnostic,
   ChapterItem,
@@ -488,7 +489,7 @@ export function executeGallery(
       );
       diagnostics.push(...result.diagnostics);
       if (result.value) {
-        images.push(resolveUrl(result.value, pageContext.baseUrl));
+        images.push(encodeUrl(resolveUrl(result.value, pageContext.baseUrl)));
       }
     }
     if (directNodes.length === 0) {
@@ -545,7 +546,7 @@ export function executeGallery(
     );
     diagnostics.push(...result.diagnostics);
     if (result.value) {
-      images.push(resolveUrl(result.value, pageContext.baseUrl));
+      images.push(encodeUrl(resolveUrl(result.value, pageContext.baseUrl)));
     }
   }
 

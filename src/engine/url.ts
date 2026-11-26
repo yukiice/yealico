@@ -227,3 +227,49 @@ export function resolveUrl(relative: string, baseUrl: string): string {
     parts.search ? `?${parts.search}` : ''
   }${parts.hash ? `#${parts.hash}` : ''}`;
 }
+/**
+ * 把 URL 里非 ASCII 与空格等字符转义成合法的 URI。
+ *
+ * 部分站点（如漫画柜的图片 CDN）直接返回带中文卷名和空格的地址，
+ * 例如 `.../59660/第06卷/Spectacular Spider-Man 0001.jpg.webp`。
+ * RN 的 `<Image>` 与 OkHttp 不接受这种未转义的 URI，会直接加载失败。
+ *
+ * 不用 `encodeURI`：它会把已有的 `%20` 再转成 `%2520`，把已经编码好的
+ * 站点地址搞坏。这里逐字符处理，只转真正非法的字符，已存在的 `%XX`
+ * 和 `:/?#&=` 等结构字符原样保留。
+ */
+export function encodeUrl(raw: string): string {
+  // encodeURI 允许的字符集：RFC 3986 保留字符 + unreserved + `#`
+  const safe = /[A-Za-z0-9\-_.!~*'();/?:@&=+$,#]/;
+  let out = '';
+  for (let index = 0; index < raw.length; index += 1) {
+    const char = raw[index];
+    if (
+      char === '%' &&
+      /^[0-9a-fA-F]{2}$/.test(raw.slice(index + 1, index + 3))
+    ) {
+      out += raw.slice(index, index + 3);
+      index += 2;
+      continue;
+    }
+    if (safe.test(char)) {
+      out += char;
+      continue;
+    }
+    const codePoint = raw.codePointAt(index);
+    if (codePoint === undefined) {
+      continue;
+    }
+    const symbol = String.fromCodePoint(codePoint);
+    try {
+      out += encodeURIComponent(symbol);
+    } catch {
+      // 孤立代理对无法转义，保留原字符，交给调用方报错。
+      out += symbol;
+    }
+    if (codePoint > 0xffff) {
+      index += 1;
+    }
+  }
+  return out;
+}
