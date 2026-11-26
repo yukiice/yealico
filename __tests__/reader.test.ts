@@ -113,6 +113,14 @@ test('sends rule headers and fills browser defaults', () => {
     'a.test',
   );
   expect(customAccept.Accept).toBe('image/png');
+
+  // 有章节页地址时，Referer 用章节页而不是域名根，图床才认。
+  const chapterReferer = imageHeaders(
+    { name: 'x' },
+    'a.test',
+    'https://a.test/comic/1/2.html',
+  );
+  expect(chapterReferer.Referer).toBe('https://a.test/comic/1/2.html');
 });
 
 test('feeds a chapter URL from detail straight into gallery paging', async () => {

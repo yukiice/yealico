@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   Pressable,
-  ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   View,
@@ -28,6 +29,31 @@ export const PRELOAD_AHEAD = 2;
 export const MAX_RESTORE_BUDGET = 40;
 /** 图片实际尺寸未知前的占位宽高比（宽 / 高）。 */
 export const DEFAULT_ASPECT_RATIO = 0.7;
+/** 工具栏自动隐藏时长。 */
+export const CHROME_AUTO_HIDE_MS = 3_000;
+
+export type ReaderTap = 'prev' | 'next' | 'toggle';
+
+/**
+ * 沉浸式点击分区：左右 30% 翻页，中间切换工具栏。
+ * 宽度未知时一律当作切换，避免误翻页。
+ */
+export function resolveReaderTap(
+  locationX: number,
+  width: number,
+): ReaderTap {
+  if (!Number.isFinite(locationX) || width <= 0) {
+    return 'toggle';
+  }
+  const ratio = locationX / width;
+  if (ratio < 0.3) {
+    return 'prev';
+  }
+  if (ratio > 0.7) {
+    return 'next';
+  }
+  return 'toggle';
+}
 
 /**
  * 预加载目标：只取当前图之后的若干张，不回头、不越界。
@@ -43,6 +69,53 @@ export function preloadTargets(
   }
   const start = Math.max(0, Math.floor(index) + 1);
   return images.slice(start, start + ahead);
+}
+
+/** 已加载页数还没到总数的前提才有“继续加载”可点。 */
+export const PRELOAD_WINDOW_AHEAD = 5;
+export const PRELOAD_WINDOW_BEHIND = 2;
+
+/**
+ * 预加载窗口：当前页前后各取若干张，含当前页。
+ *
+ * 滚动阅读靠这个窗口拉图，不只预取后面两张，否则快速下接必白屏。
+ */
+export function preloadWindow(
+  images: string[],
+  index: number,
+  ahead: number = PRELOAD_WINDOW_AHEAD,
+  behind: number = PRELOAD_WINDOW_BEHIND,
+): string[] {
+  if (images.length === 0) {
+    return [];
+  }
+  const current = Math.max(0, Math.min(images.length - 1, Math.floor(index)));
+  const start = Math.max(0, current - Math.max(0, Math.floor(behind)));
+  const end = Math.min(
+    images.length,
+    current + Math.max(0, Math.floor(ahead)) + 1,
+  );
+  return images.slice(start, end);
+}
+
+/**
+ * 估算未测量页的滚动偏移。
+ *
+ * 虚拟列表不会挂载远处页面，恢复进度时目标块可能还没 onLayout；
+ * 已知块用真实高度，未知块按默认宽高比推。
+ */
+export function estimateOffset(
+  target: number,
+  blocks: Array<{ height: number } | undefined>,
+  width: number,
+): number {
+  const fallback = width > 0 ? width / DEFAULT_ASPECT_RATIO : 0;
+  let offset = 0;
+  for (let position = 0; position < target; position += 1) {
+    const block = blocks[position];
+    offset += block && block.height > 0 ? block.height : fallback;
+  }
+  return offset;
 }
 
 /** 已加载页数还没到总数的前提才有“继续加载”可点。 */
@@ -79,12 +152,22 @@ export const IMAGE_USER_AGENT =
 export function imageHeaders(
   rule: RuleDocument,
   domain: string,
+  baseUrl?: string,
 ): Record<string, string> {
   const headers: Record<string, string> = { ...(rule.headers ?? {}) };
   const hasHeader = (name: string): boolean =>
     Object.keys(headers).some(key => key.toLowerCase() === name);
-  if (!hasHeader('referer') && domain) {
-    headers.Referer = `https://${domain}/`;
+  if (!hasHeader('referer')) {
+    // 图床常校验章节页 Referer，而不只是域名根路径。
+    const referer =
+      baseUrl && /^https?:/i.test(baseUrl)
+        ? baseUrl
+        : domain
+          ? `https://${domain}/`
+          : '';
+    if (referer) {
+      headers.Referer = referer;
+    }
   }
   if (!hasHeader('user-agent')) {
     headers['User-Agent'] = IMAGE_USER_AGENT;
@@ -212,9 +295,12 @@ export function ReaderScreen({
       }),
     [cookie, forceWebView, onCookies, plan],
   );
-  const headers = useMemo(() => imageHeaders(rule, domain), [domain, rule]);
   const chapterKey = useMemo(() => progressKeyFor(chapter), [chapter]);
   const chapterUrl = typeof chapter.url === 'string' ? chapter.url : '';
+  const headers = useMemo(
+    () => imageHeaders(rule, domain, chapterUrl),
+    [chapterUrl, domain, rule],
+  );
   const restored = useMemo(
     () => (chapterKey ? progress.get(siteId, chapterKey) : undefined),
     [chapterKey, progress, siteId],
@@ -254,9 +340,13 @@ export function ReaderScreen({
   const [mode, setMode] = useState<'scroll' | 'paged'>('scroll');
   const [rtl, setRtl] = useState(false);
   const [pagedWidth, setPagedWidth] = useState(0);
+  const [readerWidth, setReaderWidth] = useState(0);
+  const [chromeVisible, setChromeVisible] = useState(true);
+  const [pagePill, setPagePill] = useState(false);
   const spreads = useMemo(() => buildSpreads(images), [images]);
 
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollListRef = useRef<FlatList<string>>(null);
+  const pagedRef = useRef<FlatList<string[]>>(null);
   const blocks = useRef<(ImageBlock | undefined)[]>([]);
   const reportedFailures = useRef<Set<number>>(new Set());
   const restoreTarget = useRef<number | null>(
@@ -349,19 +439,58 @@ export function ReaderScreen({
     rule,
   ]);
 
-  // 受控预加载：只预热紧邻的几张，失败不打扰阅读。
+  // 预加载：当前页前后各取几张，并提前量尺寸，减少白屏与布局跳动。
   useEffect(() => {
-    for (const uri of preloadTargets(images, index)) {
+    for (const uri of preloadWindow(images, index)) {
       const pending = Image.prefetch(uri);
       if (pending && typeof pending.then === 'function') {
         pending.then(undefined, () => undefined);
       }
+      Image.getSize(
+        uri,
+        (width, height) => {
+          if (width > 0 && height > 0) {
+            const ratio = width / height;
+            setAspects(current =>
+              current[uri] === ratio ? current : { ...current, [uri]: ratio },
+            );
+          }
+        },
+        () => undefined,
+      );
     }
   }, [images, index]);
 
   useEffect(() => {
     indexRef.current = index;
   }, [index]);
+
+  // 沉浸模式：工具栏隐藏时收起状态栏，退出阅读时恢复。
+  useEffect(() => {
+    StatusBar.setHidden(!chromeVisible, 'fade');
+    return () => {
+      StatusBar.setHidden(false, 'fade');
+    };
+  }, [chromeVisible]);
+
+  // 工具栏自动隐藏；每次翻页重新计时，避免阅读中一闪而过。
+  useEffect(() => {
+    if (!chromeVisible) {
+      return;
+    }
+    const timer = setTimeout(() => setChromeVisible(false), CHROME_AUTO_HIDE_MS);
+    return () => clearTimeout(timer);
+  }, [chromeVisible, index]);
+
+  // 翻页时短暂显示页码，不常驻。
+  useEffect(() => {
+    if (images.length === 0) {
+      return;
+    }
+    setPagePill(true);
+    const timer = setTimeout(() => setPagePill(false), 1_200);
+    return () => clearTimeout(timer);
+  }, [images.length, index]);
 
   useEffect(() => {
     loadingMore.current = false;
@@ -376,13 +505,15 @@ export function ReaderScreen({
     const target = restoreTarget.current ?? 0;
     const clamped = Math.min(target, Math.max(0, images.length - 1));
     const block = blocks.current[clamped];
-    if (!block || block.height <= 0) {
-      return;
-    }
+    // 虚拟列表下远处页面可能还没挂载；用估算偏移先落位，再靠下方校正。
+    const offset =
+      block && block.height > 0
+        ? block.y + restoreRatioRef.current * block.height
+        : estimateOffset(clamped, blocks.current, readerWidth);
     restorePending.current = false;
     restoreTarget.current = null;
-    scrollRef.current?.scrollTo({
-      y: Math.max(0, block.y + restoreRatioRef.current * block.height),
+    scrollListRef.current?.scrollToOffset({
+      offset: Math.max(0, offset),
       animated: false,
     });
     setNotice(`已恢复上次进度：第 ${target + 1} 张`);
@@ -390,14 +521,14 @@ export function ReaderScreen({
     const timer = setTimeout(() => {
       const late = blocks.current[clamped];
       if (late && late.height > 0) {
-        scrollRef.current?.scrollTo({
-          y: Math.max(0, late.y + restoreRatioRef.current * late.height),
+        scrollListRef.current?.scrollToOffset({
+          offset: Math.max(0, late.y + restoreRatioRef.current * late.height),
           animated: false,
         });
       }
     }, 300);
     restoreTimers.current.push(timer);
-  }, [images, laidOut]);
+  }, [images, laidOut, readerWidth]);
 
   useEffect(() => {
     const timers = restoreTimers.current;
@@ -521,6 +652,76 @@ export function ReaderScreen({
     }
   };
 
+  /** 跳到指定图片：滚动模式滚到该块，双页模式滚到所在跨页。 */
+  const goToImage = (target: number): void => {
+    if (images.length === 0) {
+      return;
+    }
+    const next = Math.max(0, Math.min(images.length - 1, target));
+    setIndex(next);
+    indexRef.current = next;
+    if (mode === 'paged') {
+      offsetRatioRef.current = 0;
+      pagedRef.current?.scrollToIndex({
+        index: spreadIndexFor(next),
+        animated: true,
+      });
+      return;
+    }
+    const block = blocks.current[next];
+    if (block) {
+      scrollListRef.current?.scrollToOffset({
+        offset: Math.max(0, block.y),
+        animated: true,
+      });
+    } else {
+      scrollListRef.current?.scrollToOffset({
+        offset: Math.max(0, estimateOffset(next, blocks.current, readerWidth)),
+        animated: true,
+      });
+    }
+  };
+
+  /**
+   * 沉浸式点击：左右三分之一翻页，中间切换工具栏。
+   * 页首/页尾的翻页会跨章或触发继续加载，避免用户只能找按钮。
+   */
+  const handleTap = (locationX: number): void => {
+    const width = mode === 'paged' ? pagedWidth : readerWidth;
+    const zone = resolveReaderTap(locationX, width);
+    if (zone === 'toggle') {
+      setChromeVisible(value => !value);
+      return;
+    }
+    if (zone === 'prev') {
+      if (index > 0) {
+        goToImage(index - 1);
+        return;
+      }
+      if (hasPrevChapter) {
+        persistProgress();
+        onSelectChapter?.(chapterIndex - 1);
+        return;
+      }
+      setChromeVisible(true);
+      return;
+    }
+    if (index < images.length - 1) {
+      goToImage(index + 1);
+      return;
+    }
+    if (chapterHasMorePages) {
+      maybeLoadMore();
+      return;
+    }
+    if (hasNextChapter) {
+      persistProgress();
+      onSelectChapter?.(chapterIndex + 1);
+      return;
+    }
+    setChromeVisible(true);
+  };
+
   const handleImageLoad = (uri: string, event: {
     nativeEvent: unknown;
   }): void => {
@@ -569,37 +770,21 @@ export function ReaderScreen({
   };
 
   return (
-    <View style={styles.root}>
+    <View
+      style={styles.root}
+      onLayout={event => setReaderWidth(event.nativeEvent.layout.width)}>
+      <StatusBar barStyle="light-content" backgroundColor="#000000" />
       <Pressable
-        onPress={() => {
-          persistProgress();
-          onBack();
-        }}
-        style={styles.backButton}>
-        <Text style={styles.backText}>← 返回详情</Text>
-      </Pressable>
-      <Text style={styles.title} numberOfLines={1}>
-        {chapter.title ?? chapter.idCode ?? siteName}
-      </Text>
-      <Text style={styles.meta}>
-        {hasChapterNav ? `第 ${chapterIndex + 1} / ${chapterCount} 章  ·  ` : ''}
-        {images.length > 0 ? `${index + 1} / ${images.length} 图` : '暂无图片'}
-        {`  ·  已载 ${pages} 页`}
-        {totalPages ? ` / ${totalPages}` : ''}
-      </Text>
-      {notice ? <Text style={styles.notice}>{notice}</Text> : null}
-
-      {loading ? (
-        <Text style={styles.info}>正在加载章节图片…</Text>
-      ) : null}
-      {!loading && error ? <Text style={styles.error}>{error}</Text> : null}
-      {!loading && !error && images.length === 0 ? (
-        <Text style={styles.info}>章节没有图片</Text>
-      ) : null}
-
+        style={styles.content}
+        onPress={event => handleTap(event.nativeEvent.locationX)}>
       {images.length > 0 && mode === 'scroll' ? (
-        <ScrollView
-          ref={scrollRef}
+        <FlatList
+          ref={scrollListRef}
+          data={images}
+          keyExtractor={(uri, position) => `${position}:${uri}`}
+          extraData={`${failed ? Object.keys(failed).length : 0}:${
+            tokens ? Object.keys(tokens).length : 0
+          }`}
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           onScroll={handleScroll}
@@ -611,10 +796,15 @@ export function ReaderScreen({
           onScrollEndDrag={persistProgress}
           onMomentumScrollEnd={persistProgress}
           scrollEventThrottle={32}
-          onContentSizeChange={() => setLaidOut(current => current + 1)}>
-          {images.map((uri, position) => (
+          onContentSizeChange={() => setLaidOut(current => current + 1)}
+          // 虚拟列表：只挂视口附近的几页，避免一次把整章图片全解到内存。
+          initialNumToRender={2}
+          maxToRenderPerBatch={3}
+          windowSize={5}
+          updateCellsBatchingPeriod={50}
+          removeClippedSubviews
+          renderItem={({ item: uri, index: position }) => (
             <View
-              key={`${position}:${uri}`}
               style={styles.block}
               onLayout={event => {
                 const { y, height } = event.nativeEvent.layout;
@@ -633,6 +823,8 @@ export function ReaderScreen({
                   { aspectRatio: aspects[uri] ?? DEFAULT_ASPECT_RATIO },
                 ]}
                 resizeMode="contain"
+                resizeMethod="resize"
+                fadeDuration={0}
                 onLoad={event => handleImageLoad(uri, event)}
                 onError={() => markFailed(position, uri)}
               />
@@ -641,14 +833,14 @@ export function ReaderScreen({
                   <Text style={styles.error}>这一张加载失败</Text>
                   <Pressable
                     onPress={() => retryImage(position)}
-                    style={styles.button}>
-                    <Text style={styles.buttonText}>重试这一张</Text>
+                    style={styles.imageRetry}>
+                    <Text style={styles.imageRetryText}>重试这一张</Text>
                   </Pressable>
                 </View>
               ) : null}
             </View>
-          ))}
-        </ScrollView>
+          )}
+        />
       ) : null}
 
       {images.length > 0 && mode === 'paged' ? (
@@ -700,63 +892,143 @@ export function ReaderScreen({
         </View>
       ) : null}
 
-      <View style={styles.controls}>
-        {hasChapterNav ? (
-          <Pressable
-            onPress={() => {
-              persistProgress();
-              onSelectChapter?.(chapterIndex - 1);
-            }}
-            disabled={!hasPrevChapter}
-            style={[styles.button, !hasPrevChapter && styles.buttonDisabled]}>
-            <Text style={styles.buttonText}>‹ 上一章</Text>
-          </Pressable>
+        {loading ? (
+          <View style={styles.center} pointerEvents="none">
+            <ActivityIndicator color="#f5f5f7" />
+            <Text style={styles.info}>正在加载章节图片…</Text>
+          </View>
         ) : null}
-        {moreBudget > 0 ? (
-          <Pressable onPress={() => setBudget(moreBudget)} style={styles.button}>
-            <Text style={styles.buttonText}>
-              继续加载（{pages}/{totalPages} 页）
+        {!loading && images.length === 0 ? (
+          <View style={styles.center} pointerEvents="none">
+            <Text style={styles.emptyTitle}>
+              {error ? '章节加载失败' : '章节没有图片'}
             </Text>
-          </Pressable>
+            {error ? (
+              <Text style={styles.errorCompact} numberOfLines={4}>
+                {error}
+              </Text>
+            ) : null}
+          </View>
         ) : null}
-        {hasChapterNav ? (
-          <Pressable
-            onPress={() => {
-              persistProgress();
-              onSelectChapter?.(chapterIndex + 1);
-            }}
-            disabled={!hasNextChapter || chapterHasMorePages}
+      </Pressable>
+
+      {images.length > 1 ? (
+        <View style={styles.progressTrack} pointerEvents="none">
+          <View
             style={[
-              styles.button,
-              (!hasNextChapter || chapterHasMorePages) && styles.buttonDisabled,
-            ]}>
-            <Text style={styles.buttonText}>下一章 ›</Text>
-          </Pressable>
-        ) : null}
-        {mode === 'paged' ? (
-          <Pressable
-            onPress={() => setRtl(value => !value)}
-            style={styles.button}>
-            <Text style={styles.buttonText}>
-              {rtl ? '左到右' : '右到左'}
-            </Text>
-          </Pressable>
-        ) : null}
-        <Pressable
-          onPress={toggleMode}
-          style={styles.button}>
-          <Text style={styles.buttonText}>
-            {mode === 'scroll' ? '双页' : '连续'}
+              styles.progressFill,
+              { width: `${((index + 1) / images.length) * 100}%` },
+            ]}
+          />
+        </View>
+      ) : null}
+
+      {chromeVisible ? (
+        <>
+          <View style={styles.topBar}>
+            <Pressable
+              onPress={() => {
+                persistProgress();
+                onBack();
+              }}
+              hitSlop={10}
+              style={styles.backButton}>
+              <Text style={styles.backText}>‹ 返回</Text>
+            </Pressable>
+            <View style={styles.topTexts}>
+              <Text style={styles.title} numberOfLines={1}>
+                {chapter.title ?? chapter.idCode ?? siteName}
+              </Text>
+              <Text style={styles.meta} numberOfLines={1}>
+                {hasChapterNav
+                  ? `第 ${chapterIndex + 1} / ${chapterCount} 章`
+                  : siteName}
+                {images.length > 0 ? ` · ${index + 1} / ${images.length}` : ''}
+                {` · 已载 ${pages} 页`}
+                {totalPages ? ` / ${totalPages}` : ''}
+              </Text>
+            </View>
+          </View>
+
+          {error && images.length > 0 ? (
+            <View style={styles.errorBar} pointerEvents="none">
+              <Text style={styles.errorBarText} numberOfLines={3}>
+                {error}
+              </Text>
+            </View>
+          ) : null}
+
+          {notice ? (
+            <View style={styles.noticeBar} pointerEvents="none">
+              <Text style={styles.noticeText}>{notice}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.bottomBar}>
+            {hasChapterNav ? (
+              <Pressable
+                onPress={() => {
+                  persistProgress();
+                  onSelectChapter?.(chapterIndex - 1);
+                }}
+                disabled={!hasPrevChapter}
+                style={[styles.pill, !hasPrevChapter && styles.pillDisabled]}>
+                <Text style={styles.pillText}>上一章</Text>
+              </Pressable>
+            ) : null}
+            {moreBudget > 0 ? (
+              <Pressable
+                onPress={() => setBudget(moreBudget)}
+                style={styles.pillAccent}>
+                <Text style={styles.pillAccentText}>
+                  继续加载 {pages}/{totalPages}
+                </Text>
+              </Pressable>
+            ) : null}
+            {mode === 'paged' ? (
+              <Pressable
+                onPress={() => setRtl(value => !value)}
+                style={styles.pill}>
+                <Text style={styles.pillText}>
+                  {rtl ? '左到右' : '右到左'}
+                </Text>
+              </Pressable>
+            ) : null}
+            <Pressable onPress={toggleMode} style={styles.pill}>
+              <Text style={styles.pillText}>
+                {mode === 'scroll' ? '双页' : '连续'}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setRetryToken(token => token + 1)}
+              style={styles.pill}>
+              <Text style={styles.pillText}>重载</Text>
+            </Pressable>
+            {hasChapterNav ? (
+              <Pressable
+                onPress={() => {
+                  persistProgress();
+                  onSelectChapter?.(chapterIndex + 1);
+                }}
+                disabled={!hasNextChapter || chapterHasMorePages}
+                style={[
+                  styles.pill,
+                  (!hasNextChapter || chapterHasMorePages) &&
+                    styles.pillDisabled,
+                ]}>
+                <Text style={styles.pillText}>下一章</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </>
+      ) : null}
+
+      {!chromeVisible && pagePill && images.length > 0 ? (
+        <View style={styles.pagePill} pointerEvents="none">
+          <Text style={styles.pagePillText}>
+            {index + 1} / {images.length}
           </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setRetryToken(token => token + 1)}
-          style={styles.button}>
-          <Text style={styles.buttonText}>重新加载</Text>
-        </Pressable>
-      </View>
-      {chapterHasMorePages ? (
-        <Text style={styles.notice}>本章还有未加载页，点「继续加载」</Text>
+        </View>
       ) : null}
     </View>
   );
@@ -765,58 +1037,29 @@ export function ReaderScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: '#000000',
   },
-  backButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: 4,
-    marginBottom: 6,
-  },
-  backText: {
-    color: '#93c5fd',
-    fontSize: 13,
-  },
-  title: {
-    color: '#f8fafc',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  meta: {
-    color: '#94a3b8',
-    fontSize: 12,
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  notice: {
-    color: '#93c5fd',
-    fontSize: 12,
-    marginBottom: 8,
-  },
-  info: {
-    color: '#94a3b8',
-    fontSize: 13,
-    marginTop: 12,
-  },
-  error: {
-    color: '#fca5a5',
-    fontSize: 12,
-    marginTop: 8,
+  content: {
+    flex: 1,
+    backgroundColor: '#000000',
   },
   scroll: {
     flex: 1,
-    backgroundColor: '#0b1220',
-    borderRadius: 6,
+    backgroundColor: '#000000',
   },
   scrollContent: {
-    paddingBottom: 12,
+    paddingBottom: 0,
   },
   block: {
     width: '100%',
     justifyContent: 'center',
   },
+  image: {
+    width: '100%',
+  },
   paged: {
     flex: 1,
-    backgroundColor: '#0b1220',
-    borderRadius: 6,
+    backgroundColor: '#000000',
     overflow: 'hidden',
   },
   spread: {
@@ -827,34 +1070,176 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
   },
-  image: {
-    width: '100%',
-  },
   blockError: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(2, 6, 23, 0.72)',
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
   },
-  controls: {
-    flexDirection: 'row',
+  error: {
+    color: '#fca5a5',
+    fontSize: 12,
+    marginTop: 8,
+  },
+  imageRetry: {
+    marginTop: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+  },
+  imageRetryText: {
+    color: '#f5f5f7',
+    fontSize: 12,
+  },
+  center: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    flexWrap: 'wrap',
+    paddingHorizontal: 32,
+  },
+  emptyTitle: {
+    color: '#f5f5f7',
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  errorCompact: {
+    color: '#fca5a5',
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+  info: {
+    color: '#cbd5e1',
+    fontSize: 13,
     marginTop: 10,
   },
-  button: {
-    backgroundColor: '#1e293b',
+  progressTrack: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  progressFill: {
+    height: 2,
+    backgroundColor: '#F06D8C',
+  },
+  topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.62)',
+  },
+  topTexts: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  backButton: {
+    paddingVertical: 4,
+  },
+  backText: {
+    color: '#f5f5f7',
+    fontSize: 14,
+  },
+  title: {
+    color: '#f5f5f7',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  meta: {
+    color: '#9ca3af',
+    fontSize: 11,
+    marginTop: 3,
+  },
+  errorBar: {
+    position: 'absolute',
+    top: 72,
+    left: 14,
+    right: 14,
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  errorBarText: {
+    color: '#fca5a5',
+    fontSize: 10,
+    lineHeight: 14,
+  },
+  noticeBar: {
+    position: 'absolute',
+    bottom: 82,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  noticeText: {
+    color: '#e5e7eb',
+    fontSize: 11,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    overflow: 'hidden',
+  },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.62)',
+  },
+  pill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    marginHorizontal: 4,
   },
-  buttonDisabled: {
-    opacity: 0.4,
+  pillDisabled: {
+    opacity: 0.35,
   },
-  buttonText: {
-    color: '#e2e8f0',
+  pillText: {
+    color: '#f5f5f7',
+    fontSize: 12,
+  },
+  pillAccent: {
+    backgroundColor: '#F06D8C',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  pillAccentText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  pagePill: {
+    position: 'absolute',
+    bottom: 24,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  pagePillText: {
+    color: '#f5f5f7',
     fontSize: 12,
   },
 });
