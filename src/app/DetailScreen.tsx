@@ -24,6 +24,7 @@ import { contentState } from './presentation';
 import { progressKeyFor } from './readingProgress';
 import type { ReadingProgressRepository } from './readingProgress';
 import { ReaderScreen } from './ReaderScreen';
+import { useAndroidBack } from './useAndroidBack';
 import { createRuleFetcherForPlan } from './ruleFetcherForPlan';
 import { BottomNav } from './BottomNav';
 import type { BottomTab } from './BottomNav';
@@ -145,6 +146,17 @@ export function DetailScreen({
   const [chapterQuery, setChapterQuery] = useState('');
   const [tab, setTab] = useState<'chapters' | 'browse'>('browse');
   const [reloadToken, setReloadToken] = useState(0);
+
+  // 章节选择器是覆盖在详情页上的浮层，返回键先关它。
+  // 阅读器挂载后会注册更晚的监听，会先一步消费返回键。
+  useAndroidBack(() => {
+    if (showChapterPicker) {
+      setShowChapterPicker(false);
+      setChapterQuery('');
+      return true;
+    }
+    return false;
+  });
   const detailUrl = detailUrlFor(rule, item, domain);
 
   useEffect(() => {

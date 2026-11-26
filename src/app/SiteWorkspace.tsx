@@ -27,6 +27,7 @@ import { contentState, displayIdCode } from './presentation';
 import type { ReadingProgressRepository } from './readingProgress';
 import { createRuleFetcherForPlan } from './ruleFetcherForPlan';
 import { DiagnosticsSheet } from './DiagnosticsSheet';
+import { useAndroidBack } from './useAndroidBack';
 import { BottomNav } from './BottomNav';
 import type { BottomTab } from './BottomNav';
 import { lightTheme as theme } from './theme';
@@ -77,6 +78,20 @@ export function SiteWorkspace({
   const [selectedItem, setSelectedItem] = useState<ExtractItem | null>(null);
   const [tab, setTab] = useState<BottomTab>('discover');
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+
+  // 返回键优先级：退出详情 → 回发现页；都不适用时交给系统退出。
+  // 阅读器/章节选择器会各自注册更晚的监听，因此先关更上层。
+  useAndroidBack(() => {
+    if (selectedItem) {
+      setSelectedItem(null);
+      return true;
+    }
+    if (tab !== 'discover') {
+      setTab('discover');
+      return true;
+    }
+    return false;
+  });
   const debug = useRef(new DebugSession()).current;
 
   const built = useMemo(() => {

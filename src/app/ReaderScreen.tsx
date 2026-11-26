@@ -18,6 +18,7 @@ import type { DebugSession } from './debugReport';
 import { progressKeyFor } from './readingProgress';
 import type { ReadingProgressRepository } from './readingProgress';
 import { createRuleFetcherForPlan } from './ruleFetcherForPlan';
+import { useAndroidBack } from './useAndroidBack';
 
 /** 首次进入章节只拉这么多页，避免点开就发几十个请求。 */
 export const INITIAL_PAGE_BUDGET = 4;
@@ -346,6 +347,17 @@ export function ReaderScreen({
   const [readerWidth, setReaderWidth] = useState(0);
   const [chromeVisible, setChromeVisible] = useState(true);
   const [pagePill, setPagePill] = useState(false);
+
+  // 阅读器始终消费返回键：浮层开着先收起（与点击中间的逻辑一致），
+  // 否则退回详情页。不能让事件落到系统，否则会直接关掉 Activity。
+  useAndroidBack(() => {
+    if (chromeVisible) {
+      setChromeVisible(false);
+      return true;
+    }
+    onBack();
+    return true;
+  });
   const spreads = useMemo(() => buildSpreads(images), [images]);
 
   const scrollListRef = useRef<FlatList<string>>(null);
